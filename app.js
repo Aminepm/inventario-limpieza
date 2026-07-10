@@ -7,7 +7,42 @@ const productoSelector = document.getElementById("productoSelector");
 const monthlyPricesGrid = document.getElementById("monthlyPricesGrid");
 const productoResumen = document.getElementById("productoResumen");
 
-let productos = [];
+const STORAGE_KEY = "inventarioLimpiezaDatos";
+
+function cargarProductosGuardados() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [];
+        const datos = JSON.parse(raw);
+        if (!Array.isArray(datos)) return [];
+        return datos.map(p => ({
+            id: p.id || ("p" + Date.now() + Math.floor(Math.random() * 1000)),
+            producto: p.producto || "",
+            categoria: p.categoria || "",
+            stock: Number(p.stock) || 0,
+            minimo: Number(p.minimo) || 0,
+            consumo: Number(p.consumo) || 0,
+            costeBase: Number(p.costeBase) || 0,
+            plazo: Number(p.plazo) || 1,
+            preciosMensuales: Array.isArray(p.preciosMensuales) && p.preciosMensuales.length === 12
+            ? p.preciosMensuales.map(v => Number(v) || 0)
+                : new Array(12).fill(Number(p.costeBase) || 0)
+        }));
+    } catch (err) {
+        console.error("No se pudieron cargar los datos guardados:", err);
+        return [];
+    }
+}
+
+function guardarProductos() {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(productos));
+    } catch (err) {
+        console.error("No se pudieron guardar los datos:", err);
+    }
+}
+
+let productos = cargarProductosGuardados();
 let currentYear = new Date().getFullYear();
 const yearMin = 2025;
 const yearMax = currentYear + 5;
@@ -106,6 +141,7 @@ function actualizarProductoDesdeFila(tr) {
 // ─── Dashboard ──────────────────────────────────────────────────────────────
 
 function refrescarDashboard() {
+    guardarProductos();
     let totalGastoAnual = 0;
     let alertCount = 0;
     const gastosMensuales = new Array(12).fill(0);
@@ -412,6 +448,7 @@ function initExportCsv() {
 
 // ─── Inicio ───────────────────────────────────────────────────────────────────
 
+productos.forEach(prod => crearFilaProducto(prod));
 initTheme();
 initPeriodo();
 initAddRow();
