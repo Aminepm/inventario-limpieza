@@ -176,6 +176,7 @@ const maxMes = gastosMensuales.reduce((maxIdx, val, idx, arr) => val > arr[maxId
 renderPriority();
     renderChart(gastosMensuales);
     refrescarSelectorProductos();
+    if (typeof refrescarSelectorReporte === "function") refrescarSelectorReporte();
     actualizarNotaPeriodo();
 }
 
@@ -451,6 +452,9 @@ function initExportCsv() {
 productos.forEach(prod => crearFilaProducto(prod));
 initTheme();
 initPeriodo();
+initAddRow();
+initExportCsv();
+refrescarDashboard();
 
 // ===== REPORTE SEMANAL =====
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDaGBwmfxt2-dqXK99BeFtnGrZ7aJCQi3O7AWlDpcHfl-g2AcxjpeJfNKM-Ov9SzvkvgFgLB/exec';
