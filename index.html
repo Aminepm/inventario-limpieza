@@ -147,12 +147,12 @@
                         </div>
                     </section>
 
-                    <!-- ===== REPORTE SEMANAL ===== -->
+                                        <!-- ===== REPORTE SEMANAL ===== -->
                     <section class="panel" id="reporte" style="margin-top:40px;">
                         <div class="panel-header">
                             <div>
                                 <h4>Reporte semanal de stock</h4>
-                                <p>Cada lunes introduce el stock contado físicamente. Se guarda en Google Sheets.</p>
+                                <p>Cada lunes selecciona productos del inventario e introduce las unidades gastadas.</p>
                             </div>
                         </div>
                         <div class="panel-body">
@@ -170,17 +170,17 @@
                                     <input type="number" id="rep-anio" style="width:100px;">
                                 </div>
                             </div>
-                            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:12px; margin-bottom:16px;">
-                                <div class="field" style="margin-bottom:0;"><label>Producto</label><input id="rep-producto" type="text" placeholder="Nombre del producto"></div>
-                                <div class="field" style="margin-bottom:0;"><label>Categoría</label><input id="rep-categoria" type="text" placeholder="Ej: Químicos"></div>
-                                <div class="field" style="margin-bottom:0;"><label>Proveedor</label><input id="rep-proveedor" type="text" placeholder="Nombre proveedor"></div>
-                                <div class="field" style="margin-bottom:0;"><label>Stock físico contado</label><input id="rep-stockfisico" type="number" min="0" placeholder="0"></div>
-                                <div class="field" style="margin-bottom:0;"><label>Stock teórico (app)</label><input id="rep-stockteorico" type="number" min="0" placeholder="0"></div>
-                                <div class="field" style="margin-bottom:0;"><label>Entradas semana</label><input id="rep-entradas" type="number" min="0" placeholder="0"></div>
-                                <div class="field" style="margin-bottom:0;"><label>Salidas semana</label><input id="rep-salidas" type="number" min="0" placeholder="0"></div>
-                                <div class="field" style="margin-bottom:0;"><label>Observaciones</label><input id="rep-obs" type="text" placeholder="Incidencias, notas..."></div>
+                            <div style="display:flex; gap:16px; align-items:flex-end; margin-bottom:16px;">
+                                <div class="field" style="margin-bottom:0; flex:1;">
+                                    <label for="rep-producto-select">Producto</label>
+                                    <select id="rep-producto-select" style="width:100%;"></select>
+                                </div>
+                                <div class="field" style="margin-bottom:0; width:150px;">
+                                    <label for="rep-unidades">Unidades gastadas</label>
+                                    <input type="number" id="rep-unidades" min="0" placeholder="0" style="width:100%;">
+                                </div>
+                                <button class="btn btn-secondary" onclick="agregarLineaReporte()" style="height:40px;">+ Añadir</button>
                             </div>
-                            <button class="btn btn-secondary" onclick="agregarLineaReporte()" style="margin-bottom:16px;">+ Añadir producto a la lista</button>
                             <div id="rep-lista-preview" style="margin-bottom:20px; overflow-x:auto;"></div>
                             <button class="btn btn-primary" onclick="enviarReporteSemanal()">Guardar reporte semanal en Google Sheets</button>
                             <span id="rep-estado" style="margin-left:16px; font-weight:600;"></span>
