@@ -457,7 +457,7 @@ initExportCsv();
 refrescarDashboard();
 
 // ===== REPORTE SEMANAL =====
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDaGBwmfxt2-dqXK99BeFtnGrZ7aJCQi3O7AWlDpcHfl-g2AcxjpeJfNKM-Ov9SzvkvgFgLB/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx-RFB7T2ZnDsKzYjdE4g4in2YeNCfG6tOTAKGL7RFMSHs58JQZE72EcNd2Iy6iwamy3A/exec';
 
 let lineasReporte = [];
 
