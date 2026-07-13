@@ -451,6 +451,131 @@ function initExportCsv() {
 productos.forEach(prod => crearFilaProducto(prod));
 initTheme();
 initPeriodo();
+
+// ===== REPORTE SEMANAL =====
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDaGBwmfxt2-dqXK99BeFtnGrZ7aJCQi3O7AWlDpcHfl-g2AcxjpeJfNKM-Ov9SzvkvgFgLB/exec';
+
+let lineasReporte = [];
+
+// Inicializa la fecha y semana actuales al cargar la página
+window.addEventListener('DOMContentLoaded', () => {
+  const hoy = new Date();
+  const repFecha = document.getElementById('rep-fecha');
+  const repAnio = document.getElementById('rep-anio');
+  const repSemana = document.getElementById('rep-semana');
+  if (repFecha) repFecha.value = hoy.toISOString().split('T')[0];
+  if (repAnio) repAnio.value = hoy.getFullYear();
+  if (repSemana) {
+    const inicio = new Date(hoy.getFullYear(), 0, 1);
+    const semana = Math.ceil(((hoy - inicio) / 86400000 + inicio.getDay() + 1) / 7);
+    repSemana.value = semana;
+  }
+});
+
+function agregarLineaReporte() {
+  const producto = document.getElementById('rep-producto').value.trim();
+  if (!producto) { alert('Indica el nombre del producto.'); return; }
+
+  const linea = {
+    producto,
+    categoria: document.getElementById('rep-categoria').value.trim(),
+    proveedor: document.getElementById('rep-proveedor').value.trim(),
+    stockFisico: parseInt(document.getElementById('rep-stockfisico').value) || 0,
+    stockTeorico: parseInt(document.getElementById('rep-stockteorico').value) || 0,
+    entradasSemana: parseInt(document.getElementById('rep-entradas').value) || 0,
+    salidasSemana: parseInt(document.getElementById('rep-salidas').value) || 0,
+    observaciones: document.getElementById('rep-obs').value.trim()
+  };
+
+  lineasReporte.push(linea);
+  actualizarPreviewReporte();
+
+  // Limpiar campos para el siguiente producto
+  ['rep-producto','rep-categoria','rep-proveedor','rep-stockfisico',
+   'rep-stockteorico','rep-entradas','rep-salidas','rep-obs']
+    .forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+}
+
+function actualizarPreviewReporte() {
+  const container = document.getElementById('rep-lista-preview');
+  if (!container) return;
+  if (lineasReporte.length === 0) { container.innerHTML = ''; return; }
+
+  let html = `<table style="width:100%; border-collapse:collapse; font-size:13px;">
+    <thead><tr style="background:#1a5c2e; color:#fff;">
+      <th style="padding:6px 10px;">Producto</th>
+      <th>Categoría</th><th>Proveedor</th>
+      <th>Stock Físico</th><th>Stock Teórico</th>
+      <th>Entradas</th><th>Salidas</th><th>Obs.</th><th></th>
+    </tr></thead><tbody>`;
+
+  lineasReporte.forEach((l, i) => {
+    html += `<tr style="border-bottom:1px solid #eee;">
+      <td style="padding:6px 10px;">${l.producto}</td>
+      <td>${l.categoria}</td><td>${l.proveedor}</td>
+      <td style="text-align:center;">${l.stockFisico}</td>
+      <td style="text-align:center;">${l.stockTeorico}</td>
+      <td style="text-align:center;">${l.entradasSemana}</td>
+      <td style="text-align:center;">${l.salidasSemana}</td>
+      <td>${l.observaciones}</td>
+      <td><button onclick="eliminarLineaReporte(${i})" class="btn btn-danger" style="padding:2px 8px;">✕</button></td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function eliminarLineaReporte(i) {
+  lineasReporte.splice(i, 1);
+  actualizarPreviewReporte();
+}
+
+async function enviarReporteSemanal() {
+  if (lineasReporte.length === 0) { alert('Añade al menos un producto al reporte.'); return; }
+
+  const estado = document.getElementById('rep-estado');
+  if (estado) {
+    estado.textContent = 'Enviando...';
+    estado.style.color = '#e67e22';
+  }
+
+  const payload = {
+    fecha: document.getElementById('rep-fecha').value,
+    anio: parseInt(document.getElementById('rep-anio').value),
+    semana: parseInt(document.getElementById('rep-semana').value),
+    reportes: lineasReporte
+  };
+
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.resultado === 'ok') {
+      if (estado) {
+        estado.textContent = `✅ Guardado correctamente (${data.filas} productos)`;
+        estado.style.color = '#1a5c2e';
+      }
+      lineasReporte = [];
+      actualizarPreviewReporte();
+    } else {
+      if (estado) {
+        estado.textContent = '❌ Error: ' + data.mensaje;
+        estado.style.color = '#c0392b';
+      }
+    }
+  } catch(e) {
+    if (estado) {
+      estado.textContent = '❌ Error de conexión';
+      estado.style.color = '#c0392b';
+    }
+  }
+}
 initAddRow();
 initExportCsv();
 refrescarDashboard();
