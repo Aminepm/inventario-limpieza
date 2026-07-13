@@ -457,7 +457,7 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDaGBwmfxt2-dq
 
 let lineasReporte = [];
 
-// Inicializa la fecha y semana actuales al cargar la página
+// Inicializa la fecha, semana y selector de productos
 window.addEventListener('DOMContentLoaded', () => {
   const hoy = new Date();
   const repFecha = document.getElementById('rep-fecha');
@@ -470,61 +470,82 @@ window.addEventListener('DOMContentLoaded', () => {
     const semana = Math.ceil(((hoy - inicio) / 86400000 + inicio.getDay() + 1) / 7);
     repSemana.value = semana;
   }
+  refrescarSelectorReporte();
 });
 
+function refrescarSelectorReporte() {
+  const select = document.getElementById('rep-producto-select');
+  if (!select) return;
+  select.innerHTML = '';
+  const optDefault = document.createElement('option');
+  optDefault.value = '';
+  optDefault.textContent = 'Selecciona un producto...';
+  select.appendChild(optDefault);
+  productos.forEach(prod => {
+    const opt = document.createElement('option');
+    opt.value = prod.id;
+    opt.textContent = prod.producto || `Producto ${prod.id}`;
+    select.appendChild(opt);
+  });
+}
+
 function agregarLineaReporte() {
-  const producto = document.getElementById('rep-producto').value.trim();
-  if (!producto) { alert('Indica el nombre del producto.'); return; }
-
+  const select = document.getElementById('rep-producto-select');
+  const prodId = select ? select.value : '';
+  if (!prodId) { alert('Selecciona un producto del inventario.'); return; }
+  
+  const prod = productos.find(p => p.id === prodId);
+  if (!prod) { alert('Producto no encontrado.'); return; }
+  
+  const unidades = parseInt(document.getElementById('rep-unidades').value) || 0;
+  if (unidades <= 0) { alert('Indica las unidades gastadas.'); return; }
+  
+  const stockFisicoNuevo = Math.max(0, prod.stock - unidades);
+  
   const linea = {
-    producto,
-    categoria: document.getElementById('rep-categoria').value.trim(),
-    proveedor: document.getElementById('rep-proveedor').value.trim(),
-    stockFisico: parseInt(document.getElementById('rep-stockfisico').value) || 0,
-    stockTeorico: parseInt(document.getElementById('rep-stockteorico').value) || 0,
-    entradasSemana: parseInt(document.getElementById('rep-entradas').value) || 0,
-    salidasSemana: parseInt(document.getElementById('rep-salidas').value) || 0,
-    observaciones: document.getElementById('rep-obs').value.trim()
+    producto: prod.producto,
+    categoria: prod.categoria,
+    proveedor: '', 
+    stockFisico: stockFisicoNuevo,
+    stockTeorico: prod.stock,
+    entradasSemana: 0,
+    salidasSemana: unidades,
+    observaciones: ''
   };
-
+  
   lineasReporte.push(linea);
   actualizarPreviewReporte();
-
-  // Limpiar campos para el siguiente producto
-  ['rep-producto','rep-categoria','rep-proveedor','rep-stockfisico',
-   'rep-stockteorico','rep-entradas','rep-salidas','rep-obs']
-    .forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = '';
-    });
+  
+  // Limpiar campos
+  if (select) select.value = '';
+  const repUnidades = document.getElementById('rep-unidades');
+  if (repUnidades) repUnidades.value = '';
 }
 
 function actualizarPreviewReporte() {
   const container = document.getElementById('rep-lista-preview');
   if (!container) return;
   if (lineasReporte.length === 0) { container.innerHTML = ''; return; }
-
+  
   let html = `<table style="width:100%; border-collapse:collapse; font-size:13px;">
     <thead><tr style="background:#1a5c2e; color:#fff;">
       <th style="padding:6px 10px;">Producto</th>
-      <th>Categoría</th><th>Proveedor</th>
-      <th>Stock Físico</th><th>Stock Teórico</th>
-      <th>Entradas</th><th>Salidas</th><th>Obs.</th><th></th>
+      <th>Categoría</th>
+      <th>Stock tras gasto</th><th>Stock actual</th>
+      <th>Unidades gastadas</th><th></th>
     </tr></thead><tbody>`;
-
+  
   lineasReporte.forEach((l, i) => {
     html += `<tr style="border-bottom:1px solid #eee;">
       <td style="padding:6px 10px;">${l.producto}</td>
-      <td>${l.categoria}</td><td>${l.proveedor}</td>
+      <td>${l.categoria}</td>
       <td style="text-align:center;">${l.stockFisico}</td>
       <td style="text-align:center;">${l.stockTeorico}</td>
-      <td style="text-align:center;">${l.entradasSemana}</td>
       <td style="text-align:center;">${l.salidasSemana}</td>
-      <td>${l.observaciones}</td>
       <td><button onclick="eliminarLineaReporte(${i})" class="btn btn-danger" style="padding:2px 8px;">✕</button></td>
     </tr>`;
   });
-
+  
   html += '</tbody></table>';
   container.innerHTML = html;
 }
@@ -536,20 +557,20 @@ function eliminarLineaReporte(i) {
 
 async function enviarReporteSemanal() {
   if (lineasReporte.length === 0) { alert('Añade al menos un producto al reporte.'); return; }
-
+  
   const estado = document.getElementById('rep-estado');
   if (estado) {
     estado.textContent = 'Enviando...';
     estado.style.color = '#e67e22';
   }
-
+  
   const payload = {
     fecha: document.getElementById('rep-fecha').value,
     anio: parseInt(document.getElementById('rep-anio').value),
     semana: parseInt(document.getElementById('rep-semana').value),
     reportes: lineasReporte
   };
-
+  
   try {
     const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
@@ -576,6 +597,3 @@ async function enviarReporteSemanal() {
     }
   }
 }
-initAddRow();
-initExportCsv();
-refrescarDashboard();
