@@ -11,26 +11,27 @@
 </head>
 <body>
     <!-- ===== LOGIN OVERLAY ===== -->
-<div id="loginOverlay" style="display:flex; position:fixed; inset:0; z-index:9999; background:var(--bg,#0f1117); align-items:center; justify-content:center;">
-  <div style="background:var(--surface,#1a1d27); border:1px solid var(--border,#2a2d3a); border-radius:16px; padding:40px 36px; width:100%; max-width:400px; display:flex; flex-direction:column; gap:20px;">
-    <div style="text-align:center; margin-bottom:8px;">
-      <img src="Logo-vilamarina.jpg" alt="Vilamarina" style="height:52px; object-fit:contain; margin-bottom:12px;" onerror="this.style.display='none'">
-      <h2 style="margin:0; font-size:1.3rem;">Material Limpieza</h2>
-      <p style="margin:6px 0 0; opacity:.6; font-size:.9rem;">Centre Comercial Vilamarina</p>
+<div id="loginOverlay" style="display:flex; position:fixed; inset:0; z-index:9999; background:rgba(15,17,23,0.85); backdrop-filter:blur(6px); align-items:center; justify-content:center; font-family:'Manrope',sans-serif;">
+  <div style="background:#ffffff; border-radius:20px; padding:40px 36px; width:100%; max-width:420px; box-shadow:0 20px 60px rgba(0,0,0,0.35); display:flex; flex-direction:column; gap:20px;">
+    <div style="text-align:center; margin-bottom:4px;">
+      <img src="Logo-vilamarina.jpg" alt="Vilamarina" style="height:56px; object-fit:contain; margin-bottom:14px;" onerror="this.style.display='none'">
+      <h2 style="margin:0; font-size:1.4rem; color:#111827; font-weight:700;">Material Limpieza</h2>
+      <p style="margin:6px 0 0; color:#6b7280; font-size:.9rem;">Centre Comercial Vilamarina</p>
     </div>
-    <div style="display:flex; flex-direction:column; gap:12px;">
+    <div style="display:flex; flex-direction:column; gap:14px;">
       <div>
-        <label style="font-size:.85rem; opacity:.7; display:block; margin-bottom:4px;">Correo electrónico</label>
-        <input id="loginEmail" type="email" placeholder="correo@ejemplo.com" style="width:100%; padding:10px 14px; border-radius:8px; border:1px solid var(--border,#2a2d3a); background:var(--bg,#0f1117); color:inherit; font-size:.95rem; box-sizing:border-box;">
+        <label style="font-size:.82rem; color:#374151; font-weight:600; display:block; margin-bottom:5px;">Correo electrónico</label>
+        <input id="loginEmail" type="email" placeholder="correo@ejemplo.com" style="width:100%; padding:11px 14px; border-radius:10px; border:1.5px solid #d1d5db; background:#f9fafb; color:#111827; font-size:.95rem; box-sizing:border-box; outline:none;">
       </div>
       <div>
-        <label style="font-size:.85rem; opacity:.7; display:block; margin-bottom:4px;">Contraseña</label>
-        <input id="loginPassword" type="password" placeholder="••••••••" style="width:100%; padding:10px 14px; border-radius:8px; border:1px solid var(--border,#2a2d3a); background:var(--bg,#0f1117); color:inherit; font-size:.95rem; box-sizing:border-box;">
+        <label style="font-size:.82rem; color:#374151; font-weight:600; display:block; margin-bottom:5px;">Contraseña</label>
+        <input id="loginPassword" type="password" placeholder="••••••••" style="width:100%; padding:11px 14px; border-radius:10px; border:1.5px solid #d1d5db; background:#f9fafb; color:#111827; font-size:.95rem; box-sizing:border-box; outline:none;">
       </div>
     </div>
-    <p id="loginError" style="color:#f87171; font-size:.85rem; margin:0; display:none;"></p>
-    <button id="loginBtn" onclick="loginConFirebase()" style="padding:12px; border-radius:8px; border:none; background:#6366f1; color:#fff; font-size:1rem; font-weight:600; cursor:pointer;">Entrar</button>
+    <p id="loginError" style="color:#dc2626; font-size:.85rem; margin:0; display:none;"></p>
+    <button id="loginBtn" onclick="loginConFirebase()" style="padding:13px; border-radius:10px; border:none; background:#4f46e5; color:#fff; font-size:1rem; font-weight:700; cursor:pointer; letter-spacing:.3px;">Entrar</button>
   </div>
+</div>
 </div>
 <div class="zoom-wrapper">
 <a class="sr-only" href="#contenido">Saltar al contenido</a>
