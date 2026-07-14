@@ -1,9 +1,3 @@
-// Ocultar app hasta verificar sesion
-document.addEventListener('DOMContentLoaded', () => {
-  const appShell = document.querySelector('.zoom-wrapper');
-  if (appShell) appShell.style.visibility = 'hidden';
-});
-
 const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
 const inventoryBody = document.getElementById("inventoryBody");
