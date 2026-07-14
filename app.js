@@ -616,6 +616,19 @@ function initPedidos() {
 }
 
 function eliminarPedido(id) {
+  const pedido = pedidos.find(p => p.id === id);
+  if (pedido) {
+    const prod = productos.find(p => p.id === pedido.productoId);
+    if (prod) {
+      prod.stock = Math.max(0, (Number(prod.stock) || 0) - pedido.cantidad);
+      const tr = inventoryBody.querySelector("tr[data-id=\"" + prod.id + "\"]");
+      if (tr) {
+        const stockInput = tr.querySelector("input[data-field=\"stock\"]");
+        if (stockInput) stockInput.value = prod.stock;
+      }
+      guardarProductos();
+    }
+  }
   pedidos = pedidos.filter(p => p.id !== id);
   guardarPedidos();
   renderPedidos();
