@@ -8,6 +8,7 @@ const monthlyPricesGrid = document.getElementById("monthlyPricesGrid");
 const productoResumen = document.getElementById("productoResumen");
 
 const STORAGE_KEY = "inventarioLimpiezaDatos";
+const PEDIDOS_KEY = "inventarioLimpiezaPedidos";
 
 function cargarProductosGuardados() {
     try {
@@ -42,7 +43,37 @@ function guardarProductos() {
     }
 }
 
+function cargarPedidosGuardados() {
+  try {
+    const raw = localStorage.getItem(PEDIDOS_KEY);
+    if (!raw) return [];
+    const datos = JSON.parse(raw);
+    if (!Array.isArray(datos)) return [];
+    return datos.map(p => ({
+      id: p.id || ("pe" + Date.now() + Math.floor(Math.random() * 1000)),
+      fecha: p.fecha || "",
+      productoId: p.productoId || "",
+      producto: p.producto || "",
+      categoria: p.categoria || "",
+      cantidad: Number(p.cantidad) || 0,
+      precioUnitario: Number(p.precioUnitario) || 0
+    }));
+  } catch (err) {
+    console.error("No se pudieron cargar los pedidos guardados:", err);
+    return [];
+  }
+}
+
+function guardarPedidos() {
+  try {
+    localStorage.setItem(PEDIDOS_KEY, JSON.stringify(pedidos));
+  } catch (err) {
+    console.error("No se pudieron guardar los pedidos:", err);
+  }
+}
+
 let productos = cargarProductosGuardados();
+let pedidos = cargarPedidosGuardados();
 let currentYear = new Date().getFullYear();
 const yearMin = 2025;
 const yearMax = currentYear + 5;
@@ -175,7 +206,10 @@ const maxMes = gastosMensuales.reduce((maxIdx, val, idx, arr) => val > arr[maxId
 
 renderPriority();
     renderChart(gastosMensuales);
+  renderChartReal(gastosRealesPorMes(currentYear));
+  renderPieChart();
     refrescarSelectorProductos();
+  refrescarSelectorPedidos();
     if (typeof refrescarSelectorReporte === "function") refrescarSelectorReporte();
     actualizarNotaPeriodo();
 }
@@ -232,6 +266,99 @@ function renderChart(gastosMensuales) {
         chartBox.appendChild(col);
     });
 }
+
+function gastosRealesPorMes(year) {
+  const arr = new Array(12).fill(0);
+  pedidos.forEach(p => {
+    if (!p.fecha) return;
+    const d = new Date(p.fecha);
+    if (isNaN(d.getTime()) || d.getFullYear() !== year) return;
+    arr[d.getMonth()] += p.cantidad * p.precioUnitario;
+  });
+  return arr;
+}
+
+function renderChartReal(gastosReales) {
+  const box = document.getElementById("chartBoxReal");
+  if (!box) return;
+  box.innerHTML = "";
+  if (!gastosReales.some(v => v > 0)) {
+    box.innerHTML = "<p class=\"footer-note\">Todavia no has anadido pedidos reales para el ano seleccionado.</p>";
+    return;
+  }
+  const max = Math.max(...gastosReales, 1);
+  gastosReales.forEach((valor, i) => {
+    const col = document.createElement("div");
+    col.className = "bar-col";
+    const altura = Math.max((valor / max) * 100, 5);
+    col.innerHTML = "<div class=\"bar-track\"><div class=\"bar-fill\" style=\"height:" + altura + "%\"></div></div>" +
+      "<div class=\"bar-value\">" + formatCurrency(valor) + "</div>" +
+      "<div class=\"bar-label\">" + meses[i].slice(0,3) + "</div>";
+    box.appendChild(col);
+  });
+}
+
+const PIE_COLORS = ["#01696f","#a86016","#437a22","#a12c7b","#5ea8af","#eea14a","#7fb25f","#db71b6","#6f6d67","#0c4e54"];
+
+function renderPieChart() {
+  const canvas = document.getElementById("pieChart");
+  const legend = document.getElementById("pieLegend");
+  if (!canvas || !legend) return;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  legend.innerHTML = "";
+
+  const usarReales = pedidos.length > 0;
+  const totals = {};
+  if (usarReales) {
+    pedidos.forEach(p => {
+      const key = p.producto || "Sin nombre";
+      totals[key] = (totals[key] || 0) + p.cantidad * p.precioUnitario;
+    });
+  } else {
+    productos.forEach(prod => {
+      const key = prod.producto || "Sin nombre";
+      totals[key] = (totals[key] || 0) + gastoAnualProducto(prod);
+    });
+  }
+
+  const entries = Object.entries(totals).filter(e => e[1] > 0).sort((a, b) => b[1] - a[1]);
+  const total = entries.reduce((s, e) => s + e[1], 0);
+
+  if (!entries.length || total <= 0) {
+    ctx.font = "14px sans-serif";
+    ctx.fillStyle = "#9c9991";
+    ctx.fillText("Sin datos suficientes", 20, canvas.height / 2);
+    return;
+  }
+
+  const cx = canvas.width / 2, cy = canvas.height / 2, radius = Math.min(cx, cy) - 6;
+  let start = -Math.PI / 2;
+  entries.forEach((entry, i) => {
+    const label = entry[0];
+    const value = entry[1];
+    const slice = (value / total) * Math.PI * 2;
+    const color = PIE_COLORS[i % PIE_COLORS.length];
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, radius, start, start + slice);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    start += slice;
+
+    const item = document.createElement("div");
+    item.style.display = "flex";
+    item.style.alignItems = "center";
+    item.style.gap = "8px";
+    item.style.fontSize = "13px";
+    const pct = ((value / total) * 100).toFixed(1);
+    item.innerHTML = "<span style=\"width:12px;height:12px;border-radius:3px;background:" + color + ";display:inline-block;\"></span>" +
+      label + ": <strong>" + formatCurrency(value) + "</strong> (" + pct + "%)";
+    legend.appendChild(item);
+  });
+}
+
 
 // ─── Selector de producto ────────────────────────────────────────────────────
 
@@ -415,6 +542,114 @@ function initAddRow() {
     });
 }
 
+// ─── Pedidos / compras reales ────────────────────────────────────────────────
+
+function refrescarSelectorPedidos() {
+  const select = document.getElementById("pedido-producto");
+  if (!select) return;
+  const selectedId = select.value;
+  select.innerHTML = "";
+  const optDefault = document.createElement("option");
+  optDefault.value = "";
+  optDefault.textContent = "Selecciona un producto...";
+  select.appendChild(optDefault);
+  productos.forEach(prod => {
+    const opt = document.createElement("option");
+    opt.value = prod.id;
+    opt.textContent = prod.producto || ("Producto " + prod.id);
+    select.appendChild(opt);
+  });
+  if (productos.some(p => p.id === selectedId)) select.value = selectedId;
+}
+
+function initPedidos() {
+  const select = document.getElementById("pedido-producto");
+  const btn = document.getElementById("addPedido");
+  const fechaInput = document.getElementById("pedido-fecha");
+  if (!select || !btn) return;
+
+  if (fechaInput && !fechaInput.value) {
+    fechaInput.value = new Date().toISOString().split("T")[0];
+  }
+
+  select.addEventListener("change", () => {
+    const prod = productos.find(p => p.id === select.value);
+    const precioInput = document.getElementById("pedido-precio");
+    if (prod && precioInput && !precioInput.value) {
+      precioInput.value = prod.costeBase || "";
+    }
+  });
+
+  btn.addEventListener("click", () => {
+    const prodId = select.value;
+    const prod = productos.find(p => p.id === prodId);
+    if (!prod) { alert("Selecciona un producto."); return; }
+    const cantidad = Number(document.getElementById("pedido-cantidad").value) || 0;
+    const precio = Number(document.getElementById("pedido-precio").value) || 0;
+    const fecha = fechaInput ? fechaInput.value : "";
+    if (cantidad <= 0) { alert("Indica una cantidad mayor que 0."); return; }
+    if (!fecha) { alert("Indica la fecha del pedido."); return; }
+
+    pedidos.push({
+      id: "pe" + Date.now() + Math.floor(Math.random() * 1000),
+      fecha,
+      productoId: prod.id,
+      producto: prod.producto || "Producto sin nombre",
+      categoria: prod.categoria || "",
+      cantidad,
+      precioUnitario: precio
+    });
+
+    prod.stock = (Number(prod.stock) || 0) + cantidad;
+    const tr = inventoryBody.querySelector("tr[data-id=\"" + prod.id + "\"]");
+    if (tr) {
+      const stockInput = tr.querySelector("input[data-field=\"stock\"]");
+      if (stockInput) stockInput.value = prod.stock;
+    }
+
+    guardarPedidos();
+    document.getElementById("pedido-cantidad").value = "";
+    document.getElementById("pedido-precio").value = "";
+    renderPedidos();
+    refrescarDashboard();
+  });
+}
+
+function eliminarPedido(id) {
+  pedidos = pedidos.filter(p => p.id !== id);
+  guardarPedidos();
+  renderPedidos();
+  refrescarDashboard();
+}
+
+function renderPedidos() {
+  const tbody = document.getElementById("pedidosBody");
+  const resumen = document.getElementById("pedidosResumen");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  const ordenados = [...pedidos].sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+  ordenados.forEach(p => {
+    const tr = document.createElement("tr");
+    const total = p.cantidad * p.precioUnitario;
+    tr.innerHTML = "<td>" + (p.fecha || "-") + "</td>" +
+      "<td>" + p.producto + "</td>" +
+      "<td>" + formatNumber(p.cantidad) + "</td>" +
+      "<td>" + formatCurrency(p.precioUnitario) + "</td>" +
+      "<td>" + formatCurrency(total) + "</td>" +
+      "<td><button class=\"btn btn-danger btn-eliminar-pedido\" data-id=\"" + p.id + "\" type=\"button\">Eliminar</button></td>";
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll(".btn-eliminar-pedido").forEach(btn => {
+    btn.addEventListener("click", () => eliminarPedido(btn.dataset.id));
+  });
+  if (resumen) {
+    const totalGeneral = pedidos.reduce((s, p) => s + p.cantidad * p.precioUnitario, 0);
+    resumen.innerHTML = "Pedidos registrados: <strong>" + formatNumber(pedidos.length) + "</strong><br>" +
+      "Gasto real acumulado: <strong>" + formatCurrency(totalGeneral) + "</strong>";
+  }
+}
+
+
 // ─── Exportar CSV ─────────────────────────────────────────────────────────────
 
 function exportarCSV() {
@@ -454,6 +689,8 @@ initTheme();
 initPeriodo();
 initAddRow();
 initExportCsv();
+initPedidos();
+renderPedidos();
 refrescarDashboard();
 
 // ===== REPORTE SEMANAL =====
