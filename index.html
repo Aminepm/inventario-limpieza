@@ -1,196 +1,253 @@
 <!DOCTYPE html>
 <html lang="es">
-<head> 
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Stock Limpieza · Previsión mensual</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css" />
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Stock Limpieza · Previsión mensual</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
 </head>
-<body> 
-    <div class="zoom-wrapper">
-        <a class="sr-only" href="#contenido">Saltar al contenido</a>
-        <div class="app-shell">
-            <aside class="sidebar">
-                <div class="brand">
-                    <img src="Logo-vilamarina.jpg" alt="Centre Comercial Vilamarina" class="brand-logo-img" onerror="this.onerror=null;this.style.display='none';">
-                    <div>
-                        <h1>Material limpieza</h1>
-                        <p>Centre Comercial Vilamarina</p>
-                    </div>
-                </div>
-                <nav class="nav-links" aria-label="Secciones">
-                    <a class="active" href="#resumen">Resumen</a>
-                    <a href="#inventario">Inventario</a>
-                    <a href="#precios">Precios por mes</a>
-                    <a href="#gasto">Gasto mensual</a>
-                    <a href="#reporte">Reporte semanal</a>
-                </nav>
-                <div class="sidebar-card">
-                    <h3>Descripción rápida</h3>
-                    <p>Simplemente sirve para tener controlado el stock y ver el gasto por producto durante el año.</p>
-                </div>
-            </aside>
-            <main class="main" id="contenido">
-                <header class="topbar">
-                    <div class="topbar-left">
-                        <h2>Panel material limpieza</h2>
-                        <p>Diseñado para centros comerciales y equipos de limpieza.</p>
-                    </div>
-                    <div class="topbar-actions">
-                        <button class="btn btn-primary" id="exportarCsv">Exportar CSV</button>
-                        <button class="theme-toggle" data-theme-toggle aria-label="Cambiar tema"></button>
-                    </div>
-                </header>
-                <div class="content">
-                    <section class="hero" id="resumen">
-                        <div>
-                            <span class="eyebrow">Control operativo · previsión real</span>
-                            <h3>Panel interno para controlar el material de limpieza del centro comercial.</h3>
-                            <p>Puedes ir metiendo el consumo mensual y los precios de cada mes para tener una idea del gasto del año.</p>
-                            <div class="hero-grid">
-                                <div class="mini-stat"><span>Productos activos</span><strong id="heroProductos">0</strong></div>
-                                <div class="mini-stat"><span>Coste anual previsto</span><strong id="heroCoste">0 €</strong></div>
-                                <div class="mini-stat"><span>Alertas de reposición</span><strong id="heroAlertas">0</strong></div>
-                                <div class="mini-stat"><span>Mes de mayor gasto</span><strong id="heroMesMax">–</strong></div>
-                            </div>
-                        </div>
-                        <div class="forecast-panel">
-                            <h4>Cómo se calcula</h4>
-                            <div class="forecast-kpis">
-                                <div class="line"><span>Consumo base</span><strong>Consumo mensual × 12</strong></div>
-                                <div class="line"><span>Precio por mes</span><strong>12 precios manuales por producto</strong></div>
-                                <div class="line"><span>Gasto mensual</span><strong>Consumo × precio de cada mes</strong></div>
-                                <div class="line"><span>Gasto anual</span><strong>Suma de los 12 meses</strong></div>
-                            </div>
-                            <p class="footer-note">El objetivo es poder presupuestar el año siguiente sin depender de porcentajes, solo de tarifas reales previstas.</p>
-                        </div>
-                    </section>
-                    <section class="panel" id="inventario">
-                        <div class="panel-header">
-                            <div>
-                                <h4>Inventario y consumo</h4>
-                                <p>Cada fila es un producto. Desde aquí controlas stock, consumo y nivel de riesgo de reposición.</p>
-                            </div>
-                            <button class="btn btn-secondary" id="addRow">Añadir producto</button>
-                        </div>
-                        <div class="panel-body table-wrap">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Producto</th>
-                                        <th>Categoría</th>
-                                        <th>Stock actual</th>
-                                        <th>Stock mínimo</th>
-                                        <th>Consumo mensual (unid.)</th>
-                                        <th>Coste base unidad</th>
-                                        <th>Plazo entrega (meses)</th>
-                                        <th>Estado</th>
-                                        <th>Previsión anual (unid.)</th>
-                                        <th>Gasto anual (€)</th>
-                                        <th>Precios mes</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="inventoryBody"></tbody>
-                            </table>
-                        </div>
-                    </section>
-                    <section class="section-grid" id="precios">
-                        <section class="panel">
-                            <div class="panel-header">
-                                <div>
-                                    <h4>Editor de precios mensuales</h4>
-                                    <p>Selecciona un producto y ajusta sus 12 precios previstos. El resumen se actualiza al momento.</p>
-                                </div>
-                            </div>
-                            <div class="panel-body">
-                                <div class="field">
-                                    <label for="productoSelector">Producto</label>
-                                    <select id="productoSelector"></select>
-                                </div>
-                                <div class="monthly-prices-grid" id="monthlyPricesGrid"></div>
-                                <div class="forecast-result" id="productoResumen">Selecciona un producto para ver su gasto anual previsto.</div>
-                            </div>
-                        </section>
-                        <section class="panel">
-                            <div class="panel-header">
-                                <div>
-                                    <h4>Prioridad de compra</h4>
-                                    <p>Ordena productos según riesgo, cobertura y gasto anual.</p>
-                                </div>
-                            </div>
-                            <div class="panel-body note-list" id="priorityList"></div>
-                        </section>
-                    </section>
-                    <section class="panel" id="gasto">
-                        <div class="panel-header">
-                            <div>
-                                <h4>Gasto mensual previsto</h4>
-                                <p>Visión simple para ver en qué meses se concentra más gasto de limpieza.</p>
-                            </div>
-                            <div class="fields-row" style="display:flex; gap: var(--space-3);">
-                                <div class="field" style="margin-bottom:0;">
-                                    <label for="yearSelect">Año</label>
-                                    <select id="yearSelect"></select>
-                                </div>
-                                <div class="field" style="margin-bottom:0;">
-                                    <label for="monthSelect">Mes</label>
-                                    <select id="monthSelect"></select>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="panel-body">
-                            <div class="chart-box" id="chartBox"></div>
-                            <p class="period-note" id="periodNote">Año seleccionado: 2026 · Mes de referencia: Todo el año</p>
-                        </div>
-                    </section>
+<body>
+<div class="zoom-wrapper">
+<a class="sr-only" href="#contenido">Saltar al contenido</a>
+<div class="app-shell">
+<aside class="sidebar">
+<div class="brand">
+<img src="Logo-vilamarina.jpg" alt="Centre Comercial Vilamarina" class="brand-logo-img" onerror="this.onerror=null;this.style.display='none';">
+<div>
+<h1>Material limpieza</h1>
+<p>Centre Comercial Vilamarina</p>
+</div>
+</div>
+<nav class="nav-links" aria-label="Secciones">
+<a class="active" href="#resumen">Resumen</a>
+<a href="#inventario">Inventario</a>
+<a href="#precios">Precios por mes</a>
+<a href="#gasto">Gasto mensual</a>
+<a href="#pedidos">Pedidos</a>
+<a href="#reporte">Reporte semanal</a>
+</nav>
+<div class="sidebar-card">
+<h3>Descripción rápida</h3>
+<p>Simplemente sirve para tener controlado el stock y ver el gasto por producto durante el año.</p>
+</div>
+</aside>
+<main class="main" id="contenido">
+<header class="topbar">
+<div class="topbar-left">
+<h2>Panel material limpieza</h2>
+<p>Diseñado para centros comerciales y equipos de limpieza.</p>
+</div>
+<div class="topbar-actions">
+<button class="btn btn-primary" id="exportarCsv">Exportar CSV</button>
+<button class="theme-toggle" data-theme-toggle aria-label="Cambiar tema"></button>
+</div>
+</header>
+<div class="content">
+<section class="hero" id="resumen">
+<div>
+<span class="eyebrow">Control operativo · previsión real</span>
+<h3>Panel interno para controlar el material de limpieza del centro comercial.</h3>
+<p>Puedes ir metiendo el consumo mensual y los precios de cada mes para tener una idea del gasto del año.</p>
+<div class="hero-grid">
+<div class="mini-stat"><span>Productos activos</span><strong id="heroProductos">0</strong></div>
+<div class="mini-stat"><span>Coste anual previsto</span><strong id="heroCoste">0 €</strong></div>
+<div class="mini-stat"><span>Alertas de reposición</span><strong id="heroAlertas">0</strong></div>
+<div class="mini-stat"><span>Mes de mayor gasto</span><strong id="heroMesMax">–</strong></div>
+</div>
+</div>
+<div class="forecast-panel">
+<h4>Cómo se calcula</h4>
+<div class="forecast-kpis">
+<div class="line"><span>Consumo base</span><strong>Consumo mensual × 12</strong></div>
+<div class="line"><span>Precio por mes</span><strong>12 precios manuales por producto</strong></div>
+<div class="line"><span>Gasto mensual</span><strong>Consumo × precio de cada mes</strong></div>
+<div class="line"><span>Gasto anual</span><strong>Suma de los 12 meses</strong></div>
+</div>
+<p class="footer-note">El objetivo es poder presupuestar el año siguiente sin depender de porcentajes, solo de tarifas reales previstas.</p>
+</div>
+</section>
+<section class="panel" id="inventario">
+<div class="panel-header">
+<div>
+<h4>Inventario y consumo</h4>
+<p>Cada fila es un producto. Desde aquí controlas stock, consumo y nivel de riesgo de reposición.</p>
+</div>
+<button class="btn btn-secondary" id="addRow">Añadir producto</button>
+</div>
+<div class="panel-body table-wrap">
+<table>
+<thead>
+<tr>
+<th>Producto</th>
+<th>Categoría</th>
+<th>Stock actual</th>
+<th>Stock mínimo</th>
+<th>Consumo mensual (unid.)</th>
+<th>Coste base unidad</th>
+<th>Plazo entrega (meses)</th>
+<th>Estado</th>
+<th>Previsión anual (unid.)</th>
+<th>Gasto anual (€)</th>
+<th>Precios mes</th>
+</tr>
+</thead>
+<tbody id="inventoryBody"></tbody>
+</table>
+</div>
+</section>
+<section class="section-grid" id="precios">
+<section class="panel">
+<div class="panel-header">
+<div>
+<h4>Editor de precios mensuales</h4>
+<p>Selecciona un producto y ajusta sus 12 precios previstos. El resumen se actualiza al momento.</p>
+</div>
+</div>
+<div class="panel-body">
+<div class="field">
+<label for="productoSelector">Producto</label>
+<select id="productoSelector"></select>
+</div>
+<div class="monthly-prices-grid" id="monthlyPricesGrid"></div>
+<div class="forecast-result" id="productoResumen">Selecciona un producto para ver su gasto anual previsto.</div>
+</div>
+</section>
+<section class="panel">
+<div class="panel-header">
+<div>
+<h4>Prioridad de compra</h4>
+<p>Ordena productos según riesgo, cobertura y gasto anual.</p>
+</div>
+</div>
+<div class="panel-body note-list" id="priorityList"></div>
+</section>
+</section>
+<section class="panel" id="gasto">
+<div class="panel-header">
+<div>
+<h4>Gasto mensual</h4>
+<p>Real = lo que has registrado en "Pedidos". Previsto = estimación según los precios configurados.</p>
+</div>
+<div class="fields-row" style="display:flex; gap: var(--space-3);">
+<div class="field" style="margin-bottom:0;">
+<label for="yearSelect">Año</label>
+<select id="yearSelect"></select>
+</div>
+<div class="field" style="margin-bottom:0;">
+<label for="monthSelect">Mes</label>
+<select id="monthSelect"></select>
+</div>
+</div>
+</div>
+<div class="panel-body">
+<h5 style="margin-bottom:12px;">Gasto real (pedidos registrados)</h5>
+<div class="chart-box" id="chartBoxReal"></div>
+<h5 style="margin:28px 0 12px;">Gasto previsto (estimación)</h5>
+<div class="chart-box" id="chartBox"></div>
+<p class="period-note" id="periodNote">Año seleccionado: 2026 · Mes de referencia: Todo el año</p>
+</div>
+</section>
 
-                                        <!-- ===== REPORTE SEMANAL ===== -->
-                    <section class="panel" id="reporte" style="margin-top:40px;">
-                        <div class="panel-header">
-                            <div>
-                                <h4>Reporte semanal de stock</h4>
-                                <p>Cada lunes selecciona productos del inventario e introduce las unidades gastadas.</p>
-                            </div>
-                        </div>
-                        <div class="panel-body">
-                            <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:20px;">
-                                <div class="field" style="margin-bottom:0;">
-                                    <label for="rep-fecha">Fecha del reporte</label>
-                                    <input type="date" id="rep-fecha">
-                                </div>
-                                <div class="field" style="margin-bottom:0;">
-                                    <label for="rep-semana">Semana nº</label>
-                                    <input type="number" id="rep-semana" min="1" max="53" style="width:80px;">
-                                </div>
-                                <div class="field" style="margin-bottom:0;">
-                                    <label for="rep-anio">Año</label>
-                                    <input type="number" id="rep-anio" style="width:100px;">
-                                </div>
-                            </div>
-                            <div style="display:flex; gap:16px; align-items:flex-end; margin-bottom:16px;">
-                                <div class="field" style="margin-bottom:0; flex:1;">
-                                    <label for="rep-producto-select">Producto</label>
-                                    <select id="rep-producto-select" style="width:100%;"></select>
-                                </div>
-                                <div class="field" style="margin-bottom:0; width:150px;">
-                                    <label for="rep-unidades">Unidades gastadas</label>
-                                    <input type="number" id="rep-unidades" min="0" placeholder="0" style="width:100%;">
-                                </div>
-                                <button class="btn btn-secondary" onclick="agregarLineaReporte()" style="height:40px;">+ Añadir</button>
-                            </div>
-                            <div id="rep-lista-preview" style="margin-bottom:20px; overflow-x:auto;"></div>
-                            <button class="btn btn-primary" onclick="enviarReporteSemanal()">Guardar reporte semanal en Google Sheets</button>
-                            <span id="rep-estado" style="margin-left:16px; font-weight:600;"></span>
-                        </div>
-                    </section>
+<section class="section-grid" id="pedidos">
+<section class="panel">
+<div class="panel-header">
+<div>
+<h4>Pedidos / compras reales</h4>
+<p>Registra aquí cada pedido real que hagas: se suma al gasto real y al stock disponible del producto.</p>
+</div>
+</div>
+<div class="panel-body">
+<div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px;">
+<div class="field" style="margin-bottom:0;">
+<label for="pedido-fecha">Fecha</label>
+<input type="date" id="pedido-fecha">
+</div>
+<div class="field" style="margin-bottom:0; flex:1; min-width:180px;">
+<label for="pedido-producto">Producto</label>
+<select id="pedido-producto" style="width:100%;"></select>
+</div>
+<div class="field" style="margin-bottom:0; width:120px;">
+<label for="pedido-cantidad">Cantidad</label>
+<input type="number" id="pedido-cantidad" min="0" step="1" placeholder="0">
+</div>
+<div class="field" style="margin-bottom:0; width:140px;">
+<label for="pedido-precio">Precio unidad (€)</label>
+<input type="number" id="pedido-precio" min="0" step="0.01" placeholder="0,00">
+</div>
+<button class="btn btn-secondary" id="addPedido" type="button" style="height:44px;">+ Añadir pedido</button>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Precio ud.</th><th>Total</th><th></th></tr>
+</thead>
+<tbody id="pedidosBody"></tbody>
+</table>
+</div>
+<div class="forecast-result" id="pedidosResumen" style="margin-top:16px;"></div>
+</div>
+</section>
+<section class="panel">
+<div class="panel-header">
+<div>
+<h4>Distribución del gasto</h4>
+<p>Reparto por producto (usa el gasto real si ya hay pedidos; si no, la previsión).</p>
+</div>
+</div>
+<div class="panel-body" style="display:flex; gap: var(--space-4); align-items:center; flex-wrap:wrap;">
+<canvas id="pieChart" width="220" height="220"></canvas>
+<div id="pieLegend" style="display:grid; gap:8px; flex:1; min-width:180px;"></div>
+</div>
+</section>
+</section>
 
-                </div>
-            </main>
-        </div>
-        <script src="app.js"></script>
-    </div>
+<!-- ===== REPORTE SEMANAL ===== -->
+<section class="panel" id="reporte" style="margin-top:40px;">
+<div class="panel-header">
+<div>
+<h4>Reporte semanal de stock</h4>
+<p>Cada lunes selecciona productos del inventario e introduce las unidades gastadas.</p>
+</div>
+</div>
+<div class="panel-body">
+<div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:20px;">
+<div class="field" style="margin-bottom:0;">
+<label for="rep-fecha">Fecha del reporte</label>
+<input type="date" id="rep-fecha">
+</div>
+<div class="field" style="margin-bottom:0;">
+<label for="rep-semana">Semana nº</label>
+<input type="number" id="rep-semana" min="1" max="53" style="width:80px;">
+</div>
+<div class="field" style="margin-bottom:0;">
+<label for="rep-anio">Año</label>
+<input type="number" id="rep-anio" style="width:100px;">
+</div>
+</div>
+<div style="display:flex; gap:16px; align-items:flex-end; margin-bottom:16px;">
+<div class="field" style="margin-bottom:0; flex:1;">
+<label for="rep-producto-select">Producto</label>
+<select id="rep-producto-select" style="width:100%;"></select>
+</div>
+<div class="field" style="margin-bottom:0; width:150px;">
+<label for="rep-unidades">Unidades gastadas</label>
+<input type="number" id="rep-unidades" min="0" placeholder="0" style="width:100%;">
+</div>
+<button class="btn btn-secondary" onclick="agregarLineaReporte()" style="height:40px;">+ Añadir</button>
+</div>
+<div id="rep-lista-preview" style="margin-bottom:20px; overflow-x:auto;"></div>
+<button class="btn btn-primary" onclick="enviarReporteSemanal()">Guardar reporte semanal en Google Sheets</button>
+<span id="rep-estado" style="margin-left:16px; font-weight:600;"></span>
+</div>
+</section>
+
+</div>
+</main>
+</div>
+<script src="app.js"></script>
+</div>
 </body>
 </html>
