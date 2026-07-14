@@ -10,6 +10,129 @@ const productoResumen = document.getElementById("productoResumen");
 const STORAGE_KEY = "inventarioLimpiezaDatos";
 const PEDIDOS_KEY = "inventarioLimpiezaPedidos";
 
+
+// ─── Sincronizacion en la nube (Firebase) ──────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyAHmXLAc_3tjapG4E2F4CVwEnVKE8YEYXQ",
+  authDomain: "control-inventario-2a868.firebaseapp.com",
+  projectId: "control-inventario-2a868",
+  storageBucket: "control-inventario-2a868.firebasestorage.app",
+  messagingSenderId: "313505935802",
+  appId: "1:313505935802:web:babcbdd45c2d03853d2d83"
+};
+
+let nubeDisponible = false;
+let db = null;
+let cloudDocRef = null;
+let aplicandoCambioRemoto = false;
+
+try {
+  if (typeof firebase !== "undefined") {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    cloudDocRef = db.collection("inventario").doc("main");
+    nubeDisponible = true;
+  }
+} catch (err) {
+  console.error("No se pudo inicializar Firebase:", err);
+  nubeDisponible = false;
+}
+
+async function guardarDatosEnNube() {
+  if (!nubeDisponible || aplicandoCambioRemoto) return;
+  try {
+    await cloudDocRef.set({
+      productos: productos,
+      pedidos: pedidos,
+      actualizado: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error("No se pudieron guardar los datos en la nube:", err);
+  }
+}
+
+function normalizarProductosNube(datos) {
+  return datos.map(p => ({
+    id: p.id || ("p" + Date.now() + Math.floor(Math.random() * 1000)),
+    producto: p.producto || "",
+    categoria: p.categoria || "",
+    stock: Number(p.stock) || 0,
+    minimo: Number(p.minimo) || 0,
+    consumo: Number(p.consumo) || 0,
+    costeBase: Number(p.costeBase) || 0,
+    plazo: Number(p.plazo) || 1,
+    preciosMensuales: Array.isArray(p.preciosMensuales) && p.preciosMensuales.length === 12
+      ? p.preciosMensuales.map(v => Number(v) || 0)
+      : new Array(12).fill(Number(p.costeBase) || 0)
+  }));
+}
+
+function normalizarPedidosNube(datos) {
+  return datos.map(p => ({
+    id: p.id || ("pe" + Date.now() + Math.floor(Math.random() * 1000)),
+    fecha: p.fecha || "",
+    productoId: p.productoId || "",
+    producto: p.producto || "",
+    categoria: p.categoria || "",
+    cantidad: Number(p.cantidad) || 0,
+    precioUnitario: Number(p.precioUnitario) || 0
+  }));
+}
+
+function renderTodoDesdeNube() {
+  if (inventoryBody) inventoryBody.innerHTML = "";
+  productos.forEach(prod => crearFilaProducto(prod));
+  refrescarSelectorProductos();
+  refrescarSelectorPedidos();
+  renderPedidos();
+  refrescarDashboard();
+}
+
+async function cargarDatosDesdeNube() {
+  if (!nubeDisponible) return;
+  try {
+    const snap = await cloudDocRef.get();
+    if (snap.exists) {
+      const datos = snap.data();
+      aplicandoCambioRemoto = true;
+      if (Array.isArray(datos.productos)) {
+        productos = normalizarProductosNube(datos.productos);
+        guardarProductos();
+      }
+      if (Array.isArray(datos.pedidos)) {
+        pedidos = normalizarPedidosNube(datos.pedidos);
+        guardarPedidos();
+      }
+      aplicandoCambioRemoto = false;
+      renderTodoDesdeNube();
+    } else {
+      await guardarDatosEnNube();
+    }
+  } catch (err) {
+    console.error("No se pudieron cargar los datos desde la nube:", err);
+  }
+}
+
+function iniciarSincronizacionNube() {
+  if (!nubeDisponible) return;
+  cloudDocRef.onSnapshot(function(snap) {
+    if (!snap.exists) return;
+    const datos = snap.data();
+    aplicandoCambioRemoto = true;
+    if (Array.isArray(datos.productos)) {
+      productos = normalizarProductosNube(datos.productos);
+      guardarProductos();
+    }
+    if (Array.isArray(datos.pedidos)) {
+      pedidos = normalizarPedidosNube(datos.pedidos);
+      guardarPedidos();
+    }
+    aplicandoCambioRemoto = false;
+    renderTodoDesdeNube();
+  }, function(err) {
+    console.error("Error en la sincronizacion en tiempo real:", err);
+  });
+}
 function cargarProductosGuardados() {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
@@ -41,6 +164,8 @@ function guardarProductos() {
     } catch (err) {
         console.error("No se pudieron guardar los datos:", err);
     }
+
+  if (!aplicandoCambioRemoto) { guardarDatosEnNube(); }
 }
 
 function cargarPedidosGuardados() {
@@ -70,6 +195,8 @@ function guardarPedidos() {
   } catch (err) {
     console.error("No se pudieron guardar los pedidos:", err);
   }
+
+  if (!aplicandoCambioRemoto) { guardarDatosEnNube(); }
 }
 
 let productos = cargarProductosGuardados();
@@ -705,6 +832,8 @@ initExportCsv();
 initPedidos();
 renderPedidos();
 refrescarDashboard();
+cargarDatosDesdeNube();
+iniciarSincronizacionNube();
 
 // ===== REPORTE SEMANAL =====
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx-RFB7T2ZnDsKzYjdE4g4in2YeNCfG6tOTAKGL7RFMSHs58JQZE72EcNd2Iy6iwamy3A/exec';
