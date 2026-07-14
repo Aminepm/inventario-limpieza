@@ -1,3 +1,9 @@
+// Ocultar app hasta verificar sesion
+document.addEventListener('DOMContentLoaded', () => {
+  const appShell = document.querySelector('.zoom-wrapper');
+  if (appShell) appShell.style.visibility = 'hidden';
+});
+
 const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
 const inventoryBody = document.getElementById("inventoryBody");
@@ -979,4 +985,79 @@ async function enviarReporteSemanal() {
       estado.style.color = '#c0392b';
     }
   }
+}
+
+
+// ========== FIREBASE AUTH ==========
+
+function loginConFirebase() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errorEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+
+  errorEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Entrando...';
+
+  if (typeof firebase === 'undefined' || !firebase.auth) {
+    errorEl.textContent = 'Firebase Auth no disponible.';
+    errorEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Entrar';
+    return;
+  }
+
+  firebase.auth().signInWithEmailAndPassword(email, password)
+    .then(() => {
+      btn.textContent = 'Entrar';
+      btn.disabled = false;
+    })
+    .catch((error) => {
+      btn.disabled = false;
+      btn.textContent = 'Entrar';
+      switch (error.code) {
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+        case 'auth/invalid-credential':
+          errorEl.textContent = 'Correo o contrasena incorrectos.';
+          break;
+        case 'auth/invalid-email':
+          errorEl.textContent = 'El correo no es valido.';
+          break;
+        case 'auth/too-many-requests':
+          errorEl.textContent = 'Demasiados intentos. Espera un momento.';
+          break;
+        default:
+          errorEl.textContent = 'Error: ' + error.message;
+      }
+      errorEl.style.display = 'block';
+    });
+}
+
+function cerrarSesion() {
+  if (typeof firebase !== 'undefined' && firebase.auth) {
+    firebase.auth().signOut();
+  }
+}
+
+// Escuchar cambios de sesion
+if (typeof firebase !== 'undefined') {
+  firebase.auth().onAuthStateChanged((user) => {
+    const overlay = document.getElementById('loginOverlay');
+    const appShell = document.querySelector('.zoom-wrapper');
+    if (user) {
+      // Usuario logueado: ocultar login, mostrar app
+      if (overlay) overlay.style.display = 'none';
+      if (appShell) appShell.style.visibility = 'visible';
+      // Iniciar sincronizacion con Firestore si no esta iniciada
+      if (!aplicandoCambioRemoto && typeof iniciarSincronizacionNube === 'function') {
+        iniciarSincronizacionNube();
+      }
+    } else {
+      // Sin sesion: mostrar login, ocultar app
+      if (overlay) overlay.style.display = 'flex';
+      if (appShell) appShell.style.visibility = 'hidden';
+    }
+  });
 }
