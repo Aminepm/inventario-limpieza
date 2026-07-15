@@ -6,6 +6,7 @@ const chartBox = document.getElementById("chartBox");
 const productoSelector = document.getElementById("productoSelector");
 const monthlyPricesGrid = document.getElementById("monthlyPricesGrid");
 const productoResumen = document.getElementById("productoResumen");
+const reporteBody = document.getElementById("reporteBody");
 
 const STORAGE_KEY = "inventarioLimpiezaDatos";
 const PEDIDOS_KEY = "inventarioLimpiezaPedidos";
@@ -82,6 +83,7 @@ function normalizarPedidosNube(datos) {
 function renderTodoDesdeNube() {
   if (inventoryBody) inventoryBody.innerHTML = "";
   productos.forEach(prod => crearFilaProducto(prod));
+  if (reporteBody) reporteBody.innerHTML = "";
   refrescarSelectorProductos();
   refrescarSelectorPedidos();
   renderPedidos();
@@ -668,6 +670,7 @@ function initAddRow() {
         const prod = crearProductoVacio();
         productos.push(prod);
         crearFilaProducto(prod);
+      crearFilaReporte(prod);
         refrescarDashboard();
     });
 }
@@ -828,6 +831,7 @@ function initExportCsv() {
 // ─── Inicio ───────────────────────────────────────────────────────────────────
 
 productos.forEach(prod => crearFilaProducto(prod));
+productos.forEach(prod => crearFilaReporte(prod));
 initTheme();
 initPeriodo();
 initAddRow();
@@ -841,9 +845,44 @@ iniciarSincronizacionNube();
 // ===== REPORTE SEMANAL =====
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx-RFB7T2ZnDsKzYjdE4g4in2YeNCfG6tOTAKGL7RFMSHs58JQZE72EcNd2Iy6iwamy3A/exec';
 
-let lineasReporte = [];
+function crearFilaReporte(prod) {
+  if (!reporteBody) return;
+  const tr = document.createElement('tr');
+  tr.dataset.id = prod.id;
+  tr.innerHTML = `
+  <td>${prod.producto || 'Producto sin nombre'}</td>
+  <td>${prod.categoria || ''}</td>
+  <td class="rep-stock-actual">${formatNumber(prod.stock)}</td>
+  <td><input type="number" class="rep-unidades-input" min="0" step="1" value="0" data-aplicado="0" style="width:100px;"></td>
+  `;
+  reporteBody.appendChild(tr);
 
-// Inicializa la fecha, semana y selector de productos
+  const input = tr.querySelector('.rep-unidades-input');
+  input.addEventListener('input', () => {
+    const nuevo = Math.max(0, parseInt(input.value) || 0);
+    const anterior = Number(input.dataset.aplicado || 0);
+    const delta = nuevo - anterior;
+    if (delta !== 0) {
+      prod.stock = Math.max(0, (Number(prod.stock) || 0) - delta);
+      input.dataset.aplicado = String(nuevo);
+      guardarProductos();
+      refrescarDashboard();
+    }
+  });
+}
+
+function actualizarStockEnTablaReporte() {
+  if (!reporteBody) return;
+  productos.forEach(prod => {
+    const tr = reporteBody.querySelector(`tr[data-id="${prod.id}"]`);
+    if (tr) {
+      const celda = tr.querySelector('.rep-stock-actual');
+      if (celda) celda.textContent = formatNumber(prod.stock);
+    }
+  });
+}
+
+// Inicializa la fecha y semana del reporte
 window.addEventListener('DOMContentLoaded', () => {
   const hoy = new Date();
   const repFecha = document.getElementById('rep-fecha');
@@ -856,111 +895,45 @@ window.addEventListener('DOMContentLoaded', () => {
     const semana = Math.ceil(((hoy - inicio) / 86400000 + inicio.getDay() + 1) / 7);
     repSemana.value = semana;
   }
-  refrescarSelectorReporte();
 });
 
-function refrescarSelectorReporte() {
-  const select = document.getElementById('rep-producto-select');
-  if (!select) return;
-    const valorPrevio = select.value;
-  select.innerHTML = '';
-  const optDefault = document.createElement('option');
-  optDefault.value = '';
-  optDefault.textContent = 'Selecciona un producto...';
-  select.appendChild(optDefault);
-  productos.forEach(prod => {
-    const opt = document.createElement('option');
-    opt.value = prod.id;
-    opt.textContent = prod.producto || `Producto ${prod.id}`;
-    select.appendChild(opt);
-  });
-    if (valorPrevio && Array.from(select.options).some(o => o.value === valorPrevio)) {
-        select.value = valorPrevio;
-    }
-}
-
-function agregarLineaReporte() {
-  const select = document.getElementById('rep-producto-select');
-  const prodId = select ? select.value : '';
-  if (!prodId) { alert('Selecciona un producto del inventario.'); return; }
-  
-  const prod = productos.find(p => p.id === prodId);
-  if (!prod) { alert('Producto no encontrado.'); return; }
-  
-  const unidades = parseInt(document.getElementById('rep-unidades').value) || 0;
-  if (unidades <= 0) { alert('Indica las unidades gastadas.'); return; }
-  
-  const stockFisicoNuevo = Math.max(0, prod.stock - unidades);
-  
-  const linea = {
-    producto: prod.producto,
-    categoria: prod.categoria,
-    proveedor: '', 
-    stockFisico: stockFisicoNuevo,
-    stockTeorico: prod.stock,
-    entradasSemana: 0,
-    salidasSemana: unidades,
-    observaciones: ''
-  };
-  
-  lineasReporte.push(linea);
-  actualizarPreviewReporte();
-  
-  // Limpiar campos
-  if (select) select.value = '';
-  const repUnidades = document.getElementById('rep-unidades');
-  if (repUnidades) repUnidades.value = '';
-}
-
-function actualizarPreviewReporte() {
-  const container = document.getElementById('rep-lista-preview');
-  if (!container) return;
-  if (lineasReporte.length === 0) { container.innerHTML = ''; return; }
-  
-  let html = `<table style="width:100%; border-collapse:collapse; font-size:13px;">
-    <thead><tr style="background:#1a5c2e; color:#fff;">
-      <th style="padding:6px 10px;">Producto</th>
-      <th>Categoría</th>
-      <th>Stock tras gasto</th><th>Stock actual</th>
-      <th>Unidades gastadas</th><th></th>
-    </tr></thead><tbody>`;
-  
-  lineasReporte.forEach((l, i) => {
-    html += `<tr style="border-bottom:1px solid #eee;">
-      <td style="padding:6px 10px;">${l.producto}</td>
-      <td>${l.categoria}</td>
-      <td style="text-align:center;">${l.stockFisico}</td>
-      <td style="text-align:center;">${l.stockTeorico}</td>
-      <td style="text-align:center;">${l.salidasSemana}</td>
-      <td><button onclick="eliminarLineaReporte(${i})" class="btn btn-danger" style="padding:2px 8px;">✕</button></td>
-    </tr>`;
-  });
-  
-  html += '</tbody></table>';
-  container.innerHTML = html;
-}
-
-function eliminarLineaReporte(i) {
-  lineasReporte.splice(i, 1);
-  actualizarPreviewReporte();
-}
-
 async function enviarReporteSemanal() {
-  if (lineasReporte.length === 0) { alert('Añade al menos un producto al reporte.'); return; }
-  
+  if (!reporteBody) { alert('No se encontro la tabla de reporte.'); return; }
+
+  const filas = Array.from(reporteBody.querySelectorAll('tr')).map(tr => {
+    const id = tr.dataset.id;
+    const prod = productos.find(p => p.id === id);
+    const input = tr.querySelector('.rep-unidades-input');
+    const unidades = input ? Math.max(0, parseInt(input.value) || 0) : 0;
+    return { prod, unidades, input };
+  }).filter(f => f.prod && f.unidades > 0);
+
+  if (filas.length === 0) { alert('Indica las unidades gastadas de al menos un producto.'); return; }
+
   const estado = document.getElementById('rep-estado');
   if (estado) {
     estado.textContent = 'Enviando...';
     estado.style.color = '#e67e22';
   }
-  
+
+  const reportes = filas.map(f => ({
+    producto: f.prod.producto,
+    categoria: f.prod.categoria,
+    proveedor: '',
+    stockFisico: f.prod.stock,
+    stockTeorico: f.prod.stock + f.unidades,
+    entradasSemana: 0,
+    salidasSemana: f.unidades,
+    observaciones: ''
+  }));
+
   const payload = {
     fecha: document.getElementById('rep-fecha').value,
     anio: parseInt(document.getElementById('rep-anio').value),
     semana: parseInt(document.getElementById('rep-semana').value),
-    reportes: lineasReporte
+    reportes
   };
-  
+
   try {
     const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
@@ -969,20 +942,22 @@ async function enviarReporteSemanal() {
     const data = await res.json();
     if (data.resultado === 'ok') {
       if (estado) {
-        estado.textContent = `✅ Guardado correctamente (${data.filas} productos)`;
+        estado.textContent = `Guardado correctamente (${data.filas} productos)`;
         estado.style.color = '#1a5c2e';
       }
-      lineasReporte = [];
-      actualizarPreviewReporte();
+      filas.forEach(f => {
+        f.input.value = '0';
+        f.input.dataset.aplicado = '0';
+      });
     } else {
       if (estado) {
-        estado.textContent = '❌ Error: ' + data.mensaje;
+        estado.textContent = 'Error: ' + data.mensaje;
         estado.style.color = '#c0392b';
       }
     }
   } catch(e) {
     if (estado) {
-      estado.textContent = '❌ Error de conexión';
+      estado.textContent = 'Error de conexión';
       estado.style.color = '#c0392b';
     }
   }
