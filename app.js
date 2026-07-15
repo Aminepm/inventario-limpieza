@@ -862,6 +862,7 @@ window.addEventListener('DOMContentLoaded', () => {
 function refrescarSelectorReporte() {
   const select = document.getElementById('rep-producto-select');
   if (!select) return;
+    const valorPrevio = select.value;
   select.innerHTML = '';
   const optDefault = document.createElement('option');
   optDefault.value = '';
@@ -873,6 +874,9 @@ function refrescarSelectorReporte() {
     opt.textContent = prod.producto || `Producto ${prod.id}`;
     select.appendChild(opt);
   });
+    if (valorPrevio && Array.from(select.options).some(o => o.value === valorPrevio)) {
+        select.value = valorPrevio;
+    }
 }
 
 function agregarLineaReporte() {
