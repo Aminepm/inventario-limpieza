@@ -113,8 +113,11 @@ async function cargarDatosDesdeNube() {
   }
 }
 
+let sincronizacionIniciada = false;
+
 function iniciarSincronizacionNube() {
-  if (!nubeDisponible) return;
+    if (!nubeDisponible || sincronizacionIniciada) return;
+    sincronizacionIniciada = true;
   cloudDocRef.onSnapshot(function(snap) {
     if (!snap.exists) return;
     const datos = snap.data();
