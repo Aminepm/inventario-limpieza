@@ -103,8 +103,8 @@ async function cargarDatosDesdeNube() {
         pedidos = normalizarPedidosNube(datos.pedidos);
         guardarPedidos();
       }
-      aplicandoCambioRemoto = false;
       renderTodoDesdeNube();
+            aplicandoCambioRemoto = false;
     } else {
       await guardarDatosEnNube();
     }
@@ -130,8 +130,8 @@ function iniciarSincronizacionNube() {
       pedidos = normalizarPedidosNube(datos.pedidos);
       guardarPedidos();
     }
-    aplicandoCambioRemoto = false;
     renderTodoDesdeNube();
+        aplicandoCambioRemoto = false;
   }, function(err) {
     console.error("Error en la sincronizacion en tiempo real:", err);
   });
