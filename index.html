@@ -241,19 +241,14 @@
 <input type="number" id="rep-anio" style="width:100px;">
 </div>
 </div>
-<div style="display:flex; gap:16px; align-items:flex-end; margin-bottom:16px;">
-<div class="field" style="margin-bottom:0; flex:1;">
-<label for="rep-producto-select">Producto</label>
-<select id="rep-producto-select" style="width:100%;"></select>
-</div>
-<div class="field" style="margin-bottom:0; width:150px;">
-<label for="rep-unidades">Unidades gastadas</label>
-<input type="number" id="rep-unidades" min="0" placeholder="0" style="width:100%;">
-</div>
-<button class="btn btn-secondary" onclick="agregarLineaReporte()" style="height:40px;">+ Añadir</button>
-</div>
-<div id="rep-lista-preview" style="margin-bottom:20px; overflow-x:auto;"></div>
-<button class="btn btn-primary" onclick="enviarReporteSemanal()">Guardar reporte semanal en Google Sheets</button>
+<div class="table-wrap" style="margin-bottom:20px;">
+    <table>
+    <thead>
+    <tr><th>Producto</th><th>Categoria</th><th>Stock actual</th><th>Unidades gastadas esta semana</th></tr>
+    </thead>
+    <tbody id="reporteBody"></tbody>
+    </table>
+    </div><button class="btn btn-primary" onclick="enviarReporteSemanal()">Guardar reporte semanal en Google Sheets</button>
 <span id="rep-estado" style="margin-left:16px; font-weight:600;"></span>
 </div>
 </section>
