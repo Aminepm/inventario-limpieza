@@ -84,10 +84,12 @@ function renderTodoDesdeNube() {
   if (inventoryBody) inventoryBody.innerHTML = "";
   productos.forEach(prod => crearFilaProducto(prod));
   if (reporteBody) reporteBody.innerHTML = "";
+  productos.forEach(prod => crearFilaReporte(prod)); // línea añadida
   refrescarSelectorProductos();
   refrescarSelectorPedidos();
   renderPedidos();
   refrescarDashboard();
+}
 }
 
 async function cargarDatosDesdeNube() {
