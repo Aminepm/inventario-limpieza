@@ -545,7 +545,7 @@ function renderPieChart() {
     item.style.display = "flex";
     item.style.alignItems = "center";
     item.style.gap = "8px";
-    item.style.fontSize = "17px";
+    item.style.fontSize = "13px";
     const pct = ((value / total) * 100).toFixed(1);
     item.innerHTML = "<span style=\"width:12px;height:12px;border-radius:3px;background:" + color + ";display:inline-block;\"></span>" +
       escaparHTML(label) + ": <strong>" + formatCurrency(value) + "</strong> (" + pct + "%)";
@@ -898,6 +898,23 @@ function initExportCsv() {
     btn.addEventListener("click", exportarCSV);
 }
 
+// Hace que la sección de inventario se pueda plegar/desplegar al pulsar en su
+// cabecera. La flecha indica el estado (▾ desplegada, ▸ plegada).
+function initInventarioDesplegable() {
+    const cab = document.getElementById("inventarioToggle");
+    const caret = document.getElementById("inventarioCaret");
+    const seccion = document.getElementById("inventario");
+    if (!cab || !seccion) return;
+    const body = seccion.querySelector(".panel-body");
+    if (!body) return;
+    cab.addEventListener("click", function () {
+        const oculto = body.style.display === "none";
+        body.style.display = oculto ? "" : "none";
+        if (caret) caret.textContent = oculto ? "▾" : "▸";
+        cab.setAttribute("aria-expanded", oculto ? "true" : "false");
+    });
+}
+
 // ─── Inicio ───────────────────────────────────────────────────────────────────
 
 productos.forEach(prod => crearFilaProducto(prod));
@@ -906,6 +923,7 @@ initTheme();
 initPeriodo();
 initAddRow();
 initExportCsv();
+initInventarioDesplegable();
 initPedidos();
 renderPedidos();
 refrescarDashboard();
