@@ -39,17 +39,23 @@ try {
   nubeDisponible = false;
 }
 
-async function guardarDatosEnNube() {
+let _guardarNubeTimer = null;
+function guardarDatosEnNube() {
   if (!nubeDisponible || aplicandoCambioRemoto) return;
-  try {
-    await cloudDocRef.set({
-      productos: productos,
-      pedidos: pedidos,
-      actualizado: new Date().toISOString()
-    });
-  } catch (err) {
-    console.error("No se pudieron guardar los datos en la nube:", err);
-  }
+  // Agrupa las ráfagas de tecleo: en lugar de escribir en la nube en cada
+  // letra, espera ~600 ms tras el último cambio y guarda una sola vez.
+  clearTimeout(_guardarNubeTimer);
+  _guardarNubeTimer = setTimeout(async function () {
+    try {
+      await cloudDocRef.set({
+        productos: productos,
+        pedidos: pedidos,
+        actualizado: new Date().toISOString()
+      });
+    } catch (err) {
+      console.error("No se pudieron guardar los datos en la nube:", err);
+    }
+  }, 600);
 }
 
 function normalizarProductosNube(datos) {
@@ -121,9 +127,25 @@ let sincronizacionIniciada = false;
 function iniciarSincronizacionNube() {
     if (!nubeDisponible || sincronizacionIniciada) return;
     sincronizacionIniciada = true;
-  cloudDocRef.onSnapshot(function(snap) {
+ cloudDocRef.onSnapshot(function(snap) {
     if (!snap.exists) return;
+
+    // Eco inmediato de nuestra propia escritura: no re-dibujar, o se destruiría
+    // el campo donde escribes y perderías el foco en cada letra.
+    if (snap.metadata.hasPendingWrites) return;
+
     const datos = snap.data();
+
+    // Si el contenido entrante es idéntico a lo que ya tenemos, es nuestro
+    // propio cambio y tampoco re-dibujamos. Solo re-dibujamos si el cambio
+    // viene de OTRO dispositivo.
+    const entrante = JSON.stringify({
+      productos: Array.isArray(datos.productos) ? normalizarProductosNube(datos.productos) : [],
+      pedidos: Array.isArray(datos.pedidos) ? normalizarPedidosNube(datos.pedidos) : []
+    });
+    const actual = JSON.stringify({ productos: productos, pedidos: pedidos });
+    if (entrante === actual) return;
+
     aplicandoCambioRemoto = true;
     if (Array.isArray(datos.productos)) {
       productos = normalizarProductosNube(datos.productos);
