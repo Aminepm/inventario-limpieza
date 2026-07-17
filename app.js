@@ -90,7 +90,6 @@ function renderTodoDesdeNube() {
   renderPedidos();
   refrescarDashboard();
 }
-}
 
 async function cargarDatosDesdeNube() {
   if (!nubeDisponible) return;
