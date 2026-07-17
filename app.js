@@ -578,7 +578,7 @@ function renderPieChart() {
     item.style.display = "flex";
     item.style.alignItems = "center";
     item.style.gap = "8px";
-    item.style.fontSize = "18px";
+    item.style.fontSize = "13px";
     const pct = ((value / total) * 100).toFixed(1);
     item.innerHTML = "<span style=\"width:12px;height:12px;border-radius:3px;background:" + color + ";display:inline-block;\"></span>" +
       escaparHTML(label) + ": <strong>" + formatCurrency(value) + "</strong> (" + pct + "%)";
