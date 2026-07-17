@@ -545,7 +545,7 @@ function renderPieChart() {
     item.style.display = "flex";
     item.style.alignItems = "center";
     item.style.gap = "8px";
-    item.style.fontSize = "18px";
+    item.style.fontSize = "13px";
     const pct = ((value / total) * 100).toFixed(1);
     item.innerHTML = "<span style=\"width:12px;height:12px;border-radius:3px;background:" + color + ";display:inline-block;\"></span>" +
       escaparHTML(label) + ": <strong>" + formatCurrency(value) + "</strong> (" + pct + "%)";
@@ -927,8 +927,9 @@ initInventarioDesplegable();
 initPedidos();
 renderPedidos();
 refrescarDashboard();
-cargarDatosDesdeNube();
-iniciarSincronizacionNube();
+// La conexión con la base de datos ya NO se hace aquí al arrancar, sino
+// únicamente después de iniciar sesión (ver onAuthStateChanged más abajo).
+let nubeIniciadaTrasLogin = false;
 
 // ===== REPORTE SEMANAL =====
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx-RFB7T2ZnDsKzYjdE4g4in2YeNCfG6tOTAKGL7RFMSHs58JQZE72EcNd2Iy6iwamy3A/exec';
@@ -1122,8 +1123,11 @@ if (typeof firebase !== 'undefined') {
       // Usuario logueado: ocultar login, mostrar app
       if (overlay) overlay.style.display = 'none';
       if (appShell) appShell.style.visibility = 'visible';
-      // Iniciar sincronizacion con Firestore si no esta iniciada
-      if (!aplicandoCambioRemoto && typeof iniciarSincronizacionNube === 'function') {
+      // Conectamos con la base de datos SOLO tras iniciar sesión, y una sola
+      // vez por sesión (onAuthStateChanged puede dispararse varias veces).
+      if (!nubeIniciadaTrasLogin) {
+        nubeIniciadaTrasLogin = true;
+        cargarDatosDesdeNube();
         iniciarSincronizacionNube();
       }
     } else {
