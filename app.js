@@ -39,9 +39,32 @@ try {
   nubeDisponible = false;
 }
 
+// ── Indicador de estado de sincronización ───────────────────────────────────
+// Muestra una pequeña etiqueta abajo a la derecha: "Guardando…",
+// "Sincronizado" o "Sin conexión", para que sepas si tus cambios llegaron.
+let _syncBadge = null;
+function setEstadoSync(texto, color) {
+  if (typeof document === "undefined" || !document.body) return;
+  if (!_syncBadge) {
+    _syncBadge = document.createElement("div");
+    _syncBadge.id = "syncBadge";
+    _syncBadge.style.cssText =
+      "position:fixed;bottom:12px;right:12px;z-index:9999;padding:6px 12px;" +
+      "border-radius:20px;font-size:12px;font-weight:600;color:#fff;" +
+      "box-shadow:0 2px 8px rgba(0,0,0,.2);opacity:.92;font-family:inherit;" +
+      "pointer-events:none;";
+    document.body.appendChild(_syncBadge);
+  }
+  _syncBadge.textContent = texto;
+  _syncBadge.style.background = color;
+}
+window.addEventListener("offline", function () { setEstadoSync("Sin conexión", "#c0392b"); });
+window.addEventListener("online",  function () { setEstadoSync("Conexión restaurada", "#1a5c2e"); });
+
 let _guardarNubeTimer = null;
 function guardarDatosEnNube() {
   if (!nubeDisponible || aplicandoCambioRemoto) return;
+  setEstadoSync("Guardando…", "#e67e22");
   // Agrupa las ráfagas de tecleo: en lugar de escribir en la nube en cada
   // letra, espera ~600 ms tras el último cambio y guarda una sola vez.
   clearTimeout(_guardarNubeTimer);
@@ -52,8 +75,10 @@ function guardarDatosEnNube() {
         pedidos: pedidos,
         actualizado: new Date().toISOString()
       });
+      setEstadoSync("Sincronizado", "#1a5c2e");
     } catch (err) {
       console.error("No se pudieron guardar los datos en la nube:", err);
+      setEstadoSync("Sin conexión", "#c0392b");
     }
   }, 600);
 }
@@ -127,18 +152,20 @@ let sincronizacionIniciada = false;
 function iniciarSincronizacionNube() {
     if (!nubeDisponible || sincronizacionIniciada) return;
     sincronizacionIniciada = true;
- cloudDocRef.onSnapshot(function(snap) {
+  cloudDocRef.onSnapshot(function(snap) {
     if (!snap.exists) return;
 
-    // Eco inmediato de nuestra propia escritura: no re-dibujar, o se destruiría
-    // el campo donde escribes y perderías el foco en cada letra.
+    // 1) Eco inmediato de nuestra propia escritura (aún no confirmada por el
+    //    servidor). No re-dibujamos: si lo hiciéramos, se destruiría el campo
+    //    donde estás escribiendo y perderías el foco en cada letra.
     if (snap.metadata.hasPendingWrites) return;
 
     const datos = snap.data();
 
-    // Si el contenido entrante es idéntico a lo que ya tenemos, es nuestro
-    // propio cambio y tampoco re-dibujamos. Solo re-dibujamos si el cambio
-    // viene de OTRO dispositivo.
+    // 2) Confirmación del servidor de un cambio que ya teníamos localmente.
+    //    Si el contenido entrante es idéntico a lo que ya tenemos en memoria,
+    //    es nuestro propio cambio: tampoco re-dibujamos. Solo re-dibujamos
+    //    cuando el cambio viene de OTRO dispositivo (datos distintos).
     const entrante = JSON.stringify({
       productos: Array.isArray(datos.productos) ? normalizarProductosNube(datos.productos) : [],
       pedidos: Array.isArray(datos.pedidos) ? normalizarPedidosNube(datos.pedidos) : []
@@ -263,14 +290,26 @@ function formatNumber(value) {
     return new Intl.NumberFormat("es-ES", { maximumFractionDigits: 0 }).format(value || 0);
 }
 
+// Neutraliza caracteres especiales (", <, >, &, ') antes de meter texto del
+// usuario dentro de HTML, para que un nombre con comillas o símbolos no rompa
+// la tabla ni permita inyectar etiquetas.
+function escaparHTML(v) {
+    return String(v == null ? "" : v)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
 // ─── Inventario ─────────────────────────────────────────────────────────────
 
 function crearFilaProducto(prod) {
     const tr = document.createElement("tr");
     tr.dataset.id = prod.id;
     tr.innerHTML = `
-    <td><input data-field="producto" value="${prod.producto}"></td>
-    <td><input data-field="categoria" value="${prod.categoria}"></td>
+    <td><input data-field="producto" value="${escaparHTML(prod.producto)}"></td>
+    <td><input data-field="categoria" value="${escaparHTML(prod.categoria)}"></td>
     <td><input data-field="stock" type="number" min="0" step="1" value="${prod.stock}"></td>
     <td><input data-field="minimo" type="number" min="0" step="1" value="${prod.minimo}"></td>
     <td><input data-field="consumo" type="number" min="0" step="0.01" value="${prod.consumo}"></td>
@@ -391,7 +430,7 @@ sorted.forEach(prod => {
     const div = document.createElement("div");
     div.className = "note-item";
     div.innerHTML = `
-    <h5>${prod.producto || "Producto sin nombre"}</h5>
+    <h5>${escaparHTML(prod.producto) || "Producto sin nombre"}</h5>
     <p>Estado: <strong>${status.text}</strong> &nbsp;·&nbsp;
     Gasto anual: <strong>${formatCurrency(gastoAnualProducto(prod))}</strong><br>
     Punto de pedido sugerido: <strong>${formatNumber(reorderPoint)}</strong></p>
@@ -509,7 +548,7 @@ function renderPieChart() {
     item.style.fontSize = "13px";
     const pct = ((value / total) * 100).toFixed(1);
     item.innerHTML = "<span style=\"width:12px;height:12px;border-radius:3px;background:" + color + ";display:inline-block;\"></span>" +
-      label + ": <strong>" + formatCurrency(value) + "</strong> (" + pct + "%)";
+      escaparHTML(label) + ": <strong>" + formatCurrency(value) + "</strong> (" + pct + "%)";
     legend.appendChild(item);
   });
 }
@@ -801,7 +840,7 @@ function renderPedidos() {
     const tr = document.createElement("tr");
     const total = p.cantidad * p.precioUnitario;
     tr.innerHTML = "<td>" + (p.fecha || "-") + "</td>" +
-      "<td>" + p.producto + "</td>" +
+      "<td>" + escaparHTML(p.producto) + "</td>" +
       "<td>" + formatNumber(p.cantidad) + "</td>" +
       "<td>" + formatCurrency(p.precioUnitario) + "</td>" +
       "<td>" + formatCurrency(total) + "</td>" +
@@ -873,25 +912,16 @@ function crearFilaReporte(prod) {
   const tr = document.createElement('tr');
   tr.dataset.id = prod.id;
   tr.innerHTML = `
-  <td>${prod.producto || 'Producto sin nombre'}</td>
-  <td>${prod.categoria || ''}</td>
+  <td>${escaparHTML(prod.producto) || 'Producto sin nombre'}</td>
+  <td>${escaparHTML(prod.categoria)}</td>
   <td class="rep-stock-actual">${formatNumber(prod.stock)}</td>
   <td><input type="number" class="rep-unidades-input" min="0" step="1" value="0" data-aplicado="0" style="width:100px;"></td>
   `;
   reporteBody.appendChild(tr);
 
-  const input = tr.querySelector('.rep-unidades-input');
-  input.addEventListener('input', () => {
-    const nuevo = Math.max(0, parseInt(input.value) || 0);
-    const anterior = Number(input.dataset.aplicado || 0);
-    const delta = nuevo - anterior;
-    if (delta !== 0) {
-      prod.stock = Math.max(0, (Number(prod.stock) || 0) - delta);
-      input.dataset.aplicado = String(nuevo);
-      guardarProductos();
-      refrescarDashboard();
-    }
-  });
+  // Nota: el stock NO se descuenta mientras escribes. El campo solo anota las
+  // unidades gastadas; el descuento real se aplica al pulsar "Enviar reporte"
+  // y únicamente si el guardado se confirma correctamente.
 }
 
 function actualizarStockEnTablaReporte() {
@@ -914,11 +944,20 @@ window.addEventListener('DOMContentLoaded', () => {
   if (repFecha) repFecha.value = hoy.toISOString().split('T')[0];
   if (repAnio) repAnio.value = hoy.getFullYear();
   if (repSemana) {
-    const inicio = new Date(hoy.getFullYear(), 0, 1);
-    const semana = Math.ceil(((hoy - inicio) / 86400000 + inicio.getDay() + 1) / 7);
-    repSemana.value = semana;
+    repSemana.value = numeroSemanaISO(hoy);
   }
 });
+
+// Número de semana según el estándar ISO 8601 (semana empieza en lunes; la
+// semana 1 es la que contiene el primer jueves del año). Es el criterio que
+// usan los calendarios europeos.
+function numeroSemanaISO(fecha) {
+  const d = new Date(Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()));
+  const diaSemana = d.getUTCDay() || 7; // lunes=1 ... domingo=7
+  d.setUTCDate(d.getUTCDate() + 4 - diaSemana); // jueves de esta semana
+  const inicioAnio = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - inicioAnio) / 86400000) + 1) / 7);
+}
 
 async function enviarReporteSemanal() {
   if (!reporteBody) { alert('No se encontro la tabla de reporte.'); return; }
@@ -939,16 +978,20 @@ async function enviarReporteSemanal() {
     estado.style.color = '#e67e22';
   }
 
-  const reportes = filas.map(f => ({
-    producto: f.prod.producto,
-    categoria: f.prod.categoria,
-    proveedor: '',
-    stockFisico: f.prod.stock,
-    stockTeorico: f.prod.stock + f.unidades,
-    entradasSemana: 0,
-    salidasSemana: f.unidades,
-    observaciones: ''
-  }));
+  const reportes = filas.map(f => {
+    const antes = Number(f.prod.stock) || 0;
+    const despues = Math.max(0, antes - f.unidades);
+    return {
+      producto: f.prod.producto,
+      categoria: f.prod.categoria,
+      proveedor: '',
+      stockFisico: despues,   // stock que queda tras descontar lo gastado
+      stockTeorico: antes,    // stock que había antes de descontar
+      entradasSemana: 0,
+      salidasSemana: f.unidades,
+      observaciones: ''
+    };
+  });
 
   const payload = {
     fecha: document.getElementById('rep-fecha').value,
@@ -968,10 +1011,14 @@ async function enviarReporteSemanal() {
         estado.textContent = `Guardado correctamente (${data.filas} productos)`;
         estado.style.color = '#1a5c2e';
       }
+      // Envío confirmado: ahora sí descontamos el stock de cada producto.
       filas.forEach(f => {
+        f.prod.stock = Math.max(0, (Number(f.prod.stock) || 0) - f.unidades);
         f.input.value = '0';
         f.input.dataset.aplicado = '0';
       });
+      guardarProductos();
+      refrescarDashboard();
     } else {
       if (estado) {
         estado.textContent = 'Error: ' + data.mensaje;
