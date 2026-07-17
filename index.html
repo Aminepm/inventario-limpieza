@@ -90,16 +90,19 @@
 </div>
 </div>
 <div class="panel-body" style="display:flex; gap: var(--space-4); align-items:center; flex-wrap:wrap;">
-<canvas id="pieChart" width="360" height="360"></canvas>
+<canvas id="pieChart" width="220" height="220"></canvas>
 <div id="pieLegend" style="display:grid; gap:8px; flex:1; min-width:160px;"></div>
 </div>
 </section>
 </section>
 <section class="panel" id="inventario">
 <div class="panel-header">
+<div id="inventarioToggle" style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;" aria-expanded="true" title="Pulsa para plegar o desplegar">
+<span id="inventarioCaret" style="font-size:1.1rem; line-height:1.4;">▾</span>
 <div>
 <h4>Inventario y consumo</h4>
 <p>Cada fila es un producto. Desde aquí controlas stock, consumo y nivel de riesgo de reposición.</p>
+</div>
 </div>
 <button class="btn btn-secondary" id="addRow">Añadir producto</button>
 </div>
