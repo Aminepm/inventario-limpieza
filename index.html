@@ -97,8 +97,8 @@
 </section>
 <section class="panel" id="inventario">
 <div class="panel-header">
-<div id="inventarioToggle" style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;" aria-expanded="true" title="Pulsa para plegar o desplegar">
-<span id="inventarioCaret" style="font-size:1.1rem; line-height:1.4;">❯</span>
+<div id="inventarioToggle" style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;" aria-expanded="false" title="Pulsa para plegar o desplegar">
+<span id="inventarioCaret" style="font-size:1rem; line-height:1.4; display:inline-block; transition:transform .15s ease;">❯</span>
 <div>
 <h4>Inventario y consumo</h4>
 <p>Cada fila es un producto. Desde aquí controlas stock, consumo y nivel de riesgo de reposición.</p>
@@ -106,7 +106,7 @@
 </div>
 <button class="btn btn-secondary" id="addRow">Añadir producto</button>
 </div>
-<div class="panel-body table-wrap"> style="display:none;">
+<div class="panel-body table-wrap" style="display:none;">
 <table>
 <thead>
 <tr>
