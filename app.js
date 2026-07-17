@@ -910,7 +910,7 @@ function initInventarioDesplegable() {
     cab.addEventListener("click", function () {
         const oculto = body.style.display === "none";
         body.style.display = oculto ? "" : "none";
-        if (caret) caret.textContent = oculto ? "▾" : "▸";
+        if (caret) caret.style.transform = oculto ? "rotate(90deg)" : "rotate(0deg)";
         cab.setAttribute("aria-expanded", oculto ? "true" : "false");
     });
 }
