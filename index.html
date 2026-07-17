@@ -82,6 +82,18 @@
 <div class="mini-stat"><span>Mes de mayor gasto</span><strong id="heroMesMax">–</strong></div>
 </div>
 </div>
+<section class="panel" id="controlPie" style="align-self:start;">
+<div class="panel-header">
+<div>
+<h4>Distribución del gasto</h4>
+<p>Reparto por producto (usa el gasto real si ya hay pedidos; si no, la previsión).</p>
+</div>
+</div>
+<div class="panel-body" style="display:flex; gap: var(--space-4); align-items:center; flex-wrap:wrap;">
+<canvas id="pieChart" width="220" height="220"></canvas>
+<div id="pieLegend" style="display:grid; gap:8px; flex:1; min-width:160px;"></div>
+</div>
+</section>
 </section>
 <section class="panel" id="inventario">
 <div class="panel-header">
@@ -165,7 +177,7 @@
 </div>
 </section>
 
-<section class="section-grid" id="pedidos">
+<section class="section-grid" id="pedidos" style="grid-template-columns:1fr;">
 <section class="panel">
 <div class="panel-header">
 <div>
@@ -202,18 +214,6 @@
 </table>
 </div>
 <div class="forecast-result" id="pedidosResumen" style="margin-top:16px;"></div>
-</div>
-</section>
-<section class="panel">
-<div class="panel-header">
-<div>
-<h4>Distribución del gasto</h4>
-<p>Reparto por producto (usa el gasto real si ya hay pedidos; si no, la previsión).</p>
-</div>
-</div>
-<div class="panel-body" style="display:flex; gap: var(--space-4); align-items:center; flex-wrap:wrap;">
-<canvas id="pieChart" width="220" height="220"></canvas>
-<div id="pieLegend" style="display:grid; gap:8px; flex:1; min-width:180px;"></div>
 </div>
 </section>
 </section>
