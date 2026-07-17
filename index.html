@@ -21,11 +21,11 @@
     <div style="display:flex; flex-direction:column; gap:14px;">
       <div>
         <label style="font-size:.82rem; color:#374151; font-weight:600; display:block; margin-bottom:5px;">Correo electrónico</label>
-        <input id="loginEmail" type="email" placeholder="correo@ejemplo.com" style="width:100%; padding:11px 14px; border-radius:10px; border:1.5px solid #d1d5db; background:#f9fafb; color:#111827; font-size:.95rem; box-sizing:border-box; outline:none;">
+        <input id="loginEmail" type="email" placeholder="correo@ejemplo.com" onkeydown="if(event.key==='Enter'){event.preventDefault();loginConFirebase();}" style="width:100%; padding:11px 14px; border-radius:10px; border:1.5px solid #d1d5db; background:#f9fafb; color:#111827; font-size:.95rem; box-sizing:border-box; outline:none;">
       </div>
       <div>
         <label style="font-size:.82rem; color:#374151; font-weight:600; display:block; margin-bottom:5px;">Contraseña</label>
-        <input id="loginPassword" type="password" placeholder="••••••••" style="width:100%; padding:11px 14px; border-radius:10px; border:1.5px solid #d1d5db; background:#f9fafb; color:#111827; font-size:.95rem; box-sizing:border-box; outline:none;">
+        <input id="loginPassword" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter'){event.preventDefault();loginConFirebase();}" style="width:100%; padding:11px 14px; border-radius:10px; border:1.5px solid #d1d5db; background:#f9fafb; color:#111827; font-size:.95rem; box-sizing:border-box; outline:none;">
       </div>
     </div>
     <p id="loginError" style="color:#dc2626; font-size:.85rem; margin:0; display:none;"></p>
@@ -90,7 +90,7 @@
 </div>
 </div>
 <div class="panel-body" style="display:flex; gap: var(--space-4); align-items:center; flex-wrap:wrap;">
-<canvas id="pieChart" width="380" height="380"></canvas>
+<canvas id="pieChart" width="220" height="220"></canvas>
 <div id="pieLegend" style="display:grid; gap:8px; flex:1; min-width:160px;"></div>
 </div>
 </section>
