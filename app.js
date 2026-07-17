@@ -1,268 +1,1172 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Stock Limpieza · Previsión mensual</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css" />
-</head>
-<body>
-    <!-- ===== LOGIN OVERLAY ===== -->
-<div id="loginOverlay" style="display:flex; position:fixed; inset:0; z-index:9999; background:rgba(15,17,23,0.85); backdrop-filter:blur(6px); align-items:center; justify-content:center; font-family:'Manrope',sans-serif;">
-  <div style="background:#ffffff; border-radius:20px; padding:40px 36px; width:100%; max-width:420px; box-shadow:0 20px 60px rgba(0,0,0,0.35); display:flex; flex-direction:column; gap:20px;">
-    <div style="text-align:center; margin-bottom:4px;">
-      <img src="Logo-vilamarina.jpg" alt="Vilamarina" style="height:56px; object-fit:contain; margin-bottom:14px;" onerror="this.style.display='none'">
-      <h2 style="margin:0; font-size:1.4rem; color:#111827; font-weight:700;">Material Limpieza</h2>
-      <p style="margin:6px 0 0; color:#6b7280; font-size:.9rem;">Centre Comercial Vilamarina</p>
-    </div>
-    <div style="display:flex; flex-direction:column; gap:14px;">
-      <div>
-        <label style="font-size:.82rem; color:#374151; font-weight:600; display:block; margin-bottom:5px;">Correo electrónico</label>
-        <input id="loginEmail" type="email" placeholder="correo@ejemplo.com" onkeydown="if(event.key==='Enter'){event.preventDefault();loginConFirebase();}" style="width:100%; padding:11px 14px; border-radius:10px; border:1.5px solid #d1d5db; background:#f9fafb; color:#111827; font-size:.95rem; box-sizing:border-box; outline:none;">
-      </div>
-      <div>
-        <label style="font-size:.82rem; color:#374151; font-weight:600; display:block; margin-bottom:5px;">Contraseña</label>
-        <input id="loginPassword" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter'){event.preventDefault();loginConFirebase();}" style="width:100%; padding:11px 14px; border-radius:10px; border:1.5px solid #d1d5db; background:#f9fafb; color:#111827; font-size:.95rem; box-sizing:border-box; outline:none;">
-      </div>
-    </div>
-    <p id="loginError" style="color:#dc2626; font-size:.85rem; margin:0; display:none;"></p>
-    <button id="loginBtn" onclick="loginConFirebase()" style="padding:13px; border-radius:10px; border:none; background:#4f46e5; color:#fff; font-size:1rem; font-weight:700; cursor:pointer; letter-spacing:.3px;">Entrar</button>
-  </div>
-</div>
-</div>
-<div class="zoom-wrapper" style="visibility:hidden">
-<a class="sr-only" href="#contenido">Saltar al contenido</a>
-<div class="app-shell">
-<aside class="sidebar">
-<div class="brand">
-<img src="Logo-vilamarina.jpg" alt="Centre Comercial Vilamarina" class="brand-logo-img" onerror="this.onerror=null;this.style.display='none';">
-<div>
-<h1>Material limpieza</h1>
-<p>Centre Comercial Vilamarina</p>
-</div>
-</div>
-<nav class="nav-links" aria-label="Secciones">
-<a class="active" href="#resumen">Resumen</a>
-<a href="#inventario">Inventario</a>
-<a href="#precios">Precios por mes</a>
-<a href="#gasto">Gasto mensual</a>
-<a href="#pedidos">Pedidos</a>
-<a href="#reporte">Reporte semanal</a>
-</nav>
-<div class="sidebar-card">
-<h3>Descripción rápida</h3>
-<p>Control de Stock de almacen de Limpieza.</p>
-</div>
-</aside>
-<main class="main" id="contenido">
-<header class="topbar">
-<div class="topbar-left">
-<h2>Panel material limpieza</h2>
-<p>GERENCIA-EQUIPO DE LIMPIEZA.</p>
-</div>
-<div class="topbar-actions">
-<button class="btn btn-primary" id="exportarCsv">Exportar CSV</button>
-<button class="theme-toggle" data-theme-toggle aria-label="Cambiar tema"></button>
-            <button class="btn btn-secondary" onclick="cerrarSesion()" style="font-size:.85rem;">Cerrar sesion</button>
-</div>
-</header>
-<div class="content">
-<section class="hero" id="resumen">
-<div>
-<span class="eyebrow">Control operativo · previsión real</span>
-<h3>Panel interno para controlar el material de limpieza del centro comercial.</h3>
-<p>Puedes ir metiendo el consumo mensual y los precios de cada mes para tener una idea del gasto del año.</p>
-<div class="hero-grid">
-<div class="mini-stat"><span>Productos activos</span><strong id="heroProductos">0</strong></div>
-<div class="mini-stat"><span>Coste anual previsto</span><strong id="heroCoste">0 €</strong></div>
-<div class="mini-stat"><span>Alertas de reposición</span><strong id="heroAlertas">0</strong></div>
-<div class="mini-stat"><span>Mes de mayor gasto</span><strong id="heroMesMax">–</strong></div>
-</div>
-</div>
-<section class="panel" id="controlPie" style="align-self:start;">
-<div class="panel-header">
-<div>
-<h4>Distribución del gasto</h4>
-<p>Reparto por producto (usa el gasto real si ya hay pedidos; si no, la previsión).</p>
-</div>
-</div>
-<div class="panel-body" style="display:flex; gap: var(--space-4); align-items:center; flex-wrap:wrap;">
-<canvas id="pieChart" width="220" height="220"></canvas>
-<div id="pieLegend" style="display:grid; gap:8px; flex:1; min-width:160px;"></div>
-</div>
-</section>
-</section>
-<section class="panel" id="inventario">
-<div class="panel-header">
-<div id="inventarioToggle" style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;" aria-expanded="false" title="Pulsa para plegar o desplegar">
-<span id="inventarioCaret" style="font-size:1rem; line-height:1.4; display:inline-block; transition:transform .15s ease;">❯</span>
-<div>
-<h4>Inventario y consumo</h4>
-<p>Cada fila es un producto. Desde aquí controlas stock, consumo y nivel de riesgo de reposición.</p>
-</div>
-</div>
-<button class="btn btn-secondary" id="addRow">Añadir producto</button>
-</div>
-<div class="panel-body table-wrap" style="display:none;">
-<table>
-<thead>
-<tr>
-<th>Producto</th>
-<th>Categoría</th>
-<th>Stock actual</th>
-<th>Stock mínimo</th>
-<th>Consumo mensual (unid.)</th>
-<th>Coste base unidad</th>
-<th>Plazo entrega (meses)</th>
-<th>Estado</th>
-<th>Previsión anual (unid.)</th>
-<th>Gasto anual (€)</th>
-<th>Precios mes</th>
-</tr>
-</thead>
-<tbody id="inventoryBody"></tbody>
-</table>
-</div>
-</section>
-<section class="section-grid" id="precios">
-<section class="panel">
-<div class="panel-header">
-<div>
-<h4>Editor de precios mensuales</h4>
-<p>Selecciona un producto y ajusta sus 12 precios previstos. El resumen se actualiza al momento.</p>
-</div>
-</div>
-<div class="panel-body">
-<div class="field">
-<label for="productoSelector">Producto</label>
-<select id="productoSelector"></select>
-</div>
-<div class="monthly-prices-grid" id="monthlyPricesGrid"></div>
-<div class="forecast-result" id="productoResumen">Selecciona un producto para ver su gasto anual previsto.</div>
-</div>
-</section>
-<section class="panel">
-<div class="panel-header">
-<div>
-<h4>Prioridad de compra</h4>
-<p>Ordena productos según riesgo, cobertura y gasto anual.</p>
-</div>
-</div>
-<div class="panel-body note-list" id="priorityList"></div>
-</section>
-</section>
-<section class="panel" id="gasto">
-<div class="panel-header">
-<div>
-<h4>Gasto mensual</h4>
-<p>Real = lo que has registrado en "Pedidos". Previsto = estimación según los precios configurados.</p>
-</div>
-<div class="fields-row" style="display:flex; gap: var(--space-3);">
-<div class="field" style="margin-bottom:0;">
-<label for="yearSelect">Año</label>
-<select id="yearSelect"></select>
-</div>
-<div class="field" style="margin-bottom:0;">
-<label for="monthSelect">Mes</label>
-<select id="monthSelect"></select>
-</div>
-</div>
-</div>
-<div class="panel-body">
-<h5 style="margin-bottom:12px;">Gasto real (pedidos registrados)</h5>
-<div class="chart-box" id="chartBoxReal"></div>
-<h5 style="margin:28px 0 12px;">Gasto previsto (estimación)</h5>
-<div class="chart-box" id="chartBox"></div>
-<p class="period-note" id="periodNote">Año seleccionado: 2026 · Mes de referencia: Todo el año</p>
-</div>
-</section>
+const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
-<section class="section-grid" id="pedidos" style="grid-template-columns:1fr;">
-<section class="panel">
-<div class="panel-header">
-<div>
-<h4>Pedidos / compras reales</h4>
-<p>Registra aquí cada pedido real que hagas: se suma al gasto real y al stock disponible del producto.</p>
-</div>
-</div>
-<div class="panel-body">
-<div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px;">
-<div class="field" style="margin-bottom:0;">
-<label for="pedido-fecha">Fecha</label>
-<input type="date" id="pedido-fecha">
-</div>
-<div class="field" style="margin-bottom:0; flex:1; min-width:180px;">
-<label for="pedido-producto">Producto</label>
-<select id="pedido-producto" style="width:100%;"></select>
-</div>
-<div class="field" style="margin-bottom:0; width:120px;">
-<label for="pedido-cantidad">Cantidad</label>
-<input type="number" id="pedido-cantidad" min="0" step="1" placeholder="0">
-</div>
-<div class="field" style="margin-bottom:0; width:140px;">
-<label for="pedido-precio">Precio unidad (€)</label>
-<input type="number" id="pedido-precio" min="0" step="0.01" placeholder="0,00">
-</div>
-<button class="btn btn-secondary" id="addPedido" type="button" style="height:44px;">+ Añadir pedido</button>
-</div>
-<div class="table-wrap">
-<table>
-<thead>
-<tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Precio ud.</th><th>Total</th><th></th></tr>
-</thead>
-<tbody id="pedidosBody"></tbody>
-</table>
-</div>
-<div class="forecast-result" id="pedidosResumen" style="margin-top:16px;"></div>
-</div>
-</section>
-</section>
+const inventoryBody = document.getElementById("inventoryBody");
+const priorityList = document.getElementById("priorityList");
+const chartBox = document.getElementById("chartBox");
+const productoSelector = document.getElementById("productoSelector");
+const monthlyPricesGrid = document.getElementById("monthlyPricesGrid");
+const productoResumen = document.getElementById("productoResumen");
+const reporteBody = document.getElementById("reporteBody");
 
-<!-- ===== REPORTE SEMANAL ===== -->
-<section class="panel" id="reporte" style="margin-top:40px;">
-<div class="panel-header">
-<div>
-<h4>Reporte semanal de stock</h4>
-<p>Cada lunes selecciona productos del inventario e introduce las unidades gastadas.</p>
-</div>
-</div>
-<div class="panel-body">
-<div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:20px;">
-<div class="field" style="margin-bottom:0;">
-<label for="rep-fecha">Fecha del reporte</label>
-<input type="date" id="rep-fecha">
-</div>
-<div class="field" style="margin-bottom:0;">
-<label for="rep-semana">Semana nº</label>
-<input type="number" id="rep-semana" min="1" max="53" style="width:80px;">
-</div>
-<div class="field" style="margin-bottom:0;">
-<label for="rep-anio">Año</label>
-<input type="number" id="rep-anio" style="width:100px;">
-</div>
-</div>
-<div class="table-wrap" style="margin-bottom:20px;">
-    <table>
-    <thead>
-    <tr><th>Producto</th><th>Categoria</th><th>Stock actual</th><th>Unidades gastadas esta semana</th></tr>
-    </thead>
-    <tbody id="reporteBody"></tbody>
-    </table>
-    </div><button class="btn btn-primary" onclick="enviarReporteSemanal()">Guardar reporte semanal en Google Sheets</button>
-<span id="rep-estado" style="margin-left:16px; font-weight:600;"></span>
-</div>
-</section>
+const STORAGE_KEY = "inventarioLimpiezaDatos";
+const PEDIDOS_KEY = "inventarioLimpiezaPedidos";
 
-</div>
-</main>
-</div>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-    <script src="app.js?v=2"></script>
-</div>
-</body>
-</html>
+
+// ─── Sincronizacion en la nube (Firebase) ──────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyAHmXLAc_3tjapG4E2F4CVwEnVKE8YEYXQ",
+  authDomain: "control-inventario-2a868.firebaseapp.com",
+  projectId: "control-inventario-2a868",
+  storageBucket: "control-inventario-2a868.firebasestorage.app",
+  messagingSenderId: "313505935802",
+  appId: "1:313505935802:web:babcbdd45c2d03853d2d83"
+};
+
+let nubeDisponible = false;
+let db = null;
+let cloudDocRef = null;
+let aplicandoCambioRemoto = false;
+
+try {
+  if (typeof firebase !== "undefined") {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    cloudDocRef = db.collection("inventario").doc("main");
+    nubeDisponible = true;
+  }
+} catch (err) {
+  console.error("No se pudo inicializar Firebase:", err);
+  nubeDisponible = false;
+}
+
+// ── Indicador de estado de sincronización ───────────────────────────────────
+// Muestra una pequeña etiqueta abajo a la derecha: "Guardando…",
+// "Sincronizado" o "Sin conexión", para que sepas si tus cambios llegaron.
+let _syncBadge = null;
+function setEstadoSync(texto, color) {
+  if (typeof document === "undefined" || !document.body) return;
+  if (!_syncBadge) {
+    _syncBadge = document.createElement("div");
+    _syncBadge.id = "syncBadge";
+    _syncBadge.style.cssText =
+      "position:fixed;bottom:12px;right:12px;z-index:9999;padding:6px 12px;" +
+      "border-radius:20px;font-size:12px;font-weight:600;color:#fff;" +
+      "box-shadow:0 2px 8px rgba(0,0,0,.2);opacity:.92;font-family:inherit;" +
+      "pointer-events:none;";
+    document.body.appendChild(_syncBadge);
+  }
+  _syncBadge.textContent = texto;
+  _syncBadge.style.background = color;
+}
+window.addEventListener("offline", function () { setEstadoSync("Sin conexión", "#c0392b"); });
+window.addEventListener("online",  function () { setEstadoSync("Conexión restaurada", "#1a5c2e"); });
+
+let _guardarNubeTimer = null;
+function guardarDatosEnNube() {
+  if (!nubeDisponible || aplicandoCambioRemoto) return;
+  setEstadoSync("Guardando…", "#e67e22");
+  // Agrupa las ráfagas de tecleo: en lugar de escribir en la nube en cada
+  // letra, espera ~600 ms tras el último cambio y guarda una sola vez.
+  clearTimeout(_guardarNubeTimer);
+  _guardarNubeTimer = setTimeout(async function () {
+    try {
+      await cloudDocRef.set({
+        productos: productos,
+        pedidos: pedidos,
+        actualizado: new Date().toISOString()
+      });
+      setEstadoSync("Sincronizado", "#1a5c2e");
+    } catch (err) {
+      console.error("No se pudieron guardar los datos en la nube:", err);
+      setEstadoSync("Sin conexión", "#c0392b");
+    }
+  }, 600);
+}
+
+function normalizarProductosNube(datos) {
+  return datos.map(p => ({
+    id: p.id || ("p" + Date.now() + Math.floor(Math.random() * 1000)),
+    producto: p.producto || "",
+    categoria: p.categoria || "",
+    stock: Number(p.stock) || 0,
+    minimo: Number(p.minimo) || 0,
+    consumo: Number(p.consumo) || 0,
+    costeBase: Number(p.costeBase) || 0,
+    plazo: Number(p.plazo) || 1,
+    preciosMensuales: Array.isArray(p.preciosMensuales) && p.preciosMensuales.length === 12
+      ? p.preciosMensuales.map(v => Number(v) || 0)
+      : new Array(12).fill(Number(p.costeBase) || 0)
+  }));
+}
+
+function normalizarPedidosNube(datos) {
+  return datos.map(p => ({
+    id: p.id || ("pe" + Date.now() + Math.floor(Math.random() * 1000)),
+    fecha: p.fecha || "",
+    productoId: p.productoId || "",
+    producto: p.producto || "",
+    categoria: p.categoria || "",
+    cantidad: Number(p.cantidad) || 0,
+    precioUnitario: Number(p.precioUnitario) || 0
+  }));
+}
+
+function renderTodoDesdeNube() {
+  if (inventoryBody) inventoryBody.innerHTML = "";
+  productos.forEach(prod => crearFilaProducto(prod));
+  if (reporteBody) reporteBody.innerHTML = "";
+  productos.forEach(prod => crearFilaReporte(prod)); // línea añadida
+  refrescarSelectorProductos();
+  refrescarSelectorPedidos();
+  renderPedidos();
+  refrescarDashboard();
+}
+
+async function cargarDatosDesdeNube() {
+  if (!nubeDisponible) return;
+  try {
+    const snap = await cloudDocRef.get();
+    if (snap.exists) {
+      const datos = snap.data();
+      aplicandoCambioRemoto = true;
+      if (Array.isArray(datos.productos)) {
+        productos = normalizarProductosNube(datos.productos);
+        guardarProductos();
+      }
+      if (Array.isArray(datos.pedidos)) {
+        pedidos = normalizarPedidosNube(datos.pedidos);
+        guardarPedidos();
+      }
+      renderTodoDesdeNube();
+            aplicandoCambioRemoto = false;
+    } else {
+      await guardarDatosEnNube();
+    }
+  } catch (err) {
+    console.error("No se pudieron cargar los datos desde la nube:", err);
+  }
+}
+
+let sincronizacionIniciada = false;
+
+function iniciarSincronizacionNube() {
+    if (!nubeDisponible || sincronizacionIniciada) return;
+    sincronizacionIniciada = true;
+  cloudDocRef.onSnapshot(function(snap) {
+    if (!snap.exists) return;
+
+    // 1) Eco inmediato de nuestra propia escritura (aún no confirmada por el
+    //    servidor). No re-dibujamos: si lo hiciéramos, se destruiría el campo
+    //    donde estás escribiendo y perderías el foco en cada letra.
+    if (snap.metadata.hasPendingWrites) return;
+
+    const datos = snap.data();
+
+    // 2) Confirmación del servidor de un cambio que ya teníamos localmente.
+    //    Si el contenido entrante es idéntico a lo que ya tenemos en memoria,
+    //    es nuestro propio cambio: tampoco re-dibujamos. Solo re-dibujamos
+    //    cuando el cambio viene de OTRO dispositivo (datos distintos).
+    const entrante = JSON.stringify({
+      productos: Array.isArray(datos.productos) ? normalizarProductosNube(datos.productos) : [],
+      pedidos: Array.isArray(datos.pedidos) ? normalizarPedidosNube(datos.pedidos) : []
+    });
+    const actual = JSON.stringify({ productos: productos, pedidos: pedidos });
+    if (entrante === actual) return;
+
+    aplicandoCambioRemoto = true;
+    if (Array.isArray(datos.productos)) {
+      productos = normalizarProductosNube(datos.productos);
+      guardarProductos();
+    }
+    if (Array.isArray(datos.pedidos)) {
+      pedidos = normalizarPedidosNube(datos.pedidos);
+      guardarPedidos();
+    }
+    renderTodoDesdeNube();
+        aplicandoCambioRemoto = false;
+  }, function(err) {
+    console.error("Error en la sincronizacion en tiempo real:", err);
+  });
+}
+function cargarProductosGuardados() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [];
+        const datos = JSON.parse(raw);
+        if (!Array.isArray(datos)) return [];
+        return datos.map(p => ({
+            id: p.id || ("p" + Date.now() + Math.floor(Math.random() * 1000)),
+            producto: p.producto || "",
+            categoria: p.categoria || "",
+            stock: Number(p.stock) || 0,
+            minimo: Number(p.minimo) || 0,
+            consumo: Number(p.consumo) || 0,
+            costeBase: Number(p.costeBase) || 0,
+            plazo: Number(p.plazo) || 1,
+            preciosMensuales: Array.isArray(p.preciosMensuales) && p.preciosMensuales.length === 12
+            ? p.preciosMensuales.map(v => Number(v) || 0)
+                : new Array(12).fill(Number(p.costeBase) || 0)
+        }));
+    } catch (err) {
+        console.error("No se pudieron cargar los datos guardados:", err);
+        return [];
+    }
+}
+
+function guardarProductos() {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(productos));
+    } catch (err) {
+        console.error("No se pudieron guardar los datos:", err);
+    }
+
+  if (!aplicandoCambioRemoto) { guardarDatosEnNube(); }
+}
+
+function cargarPedidosGuardados() {
+  try {
+    const raw = localStorage.getItem(PEDIDOS_KEY);
+    if (!raw) return [];
+    const datos = JSON.parse(raw);
+    if (!Array.isArray(datos)) return [];
+    return datos.map(p => ({
+      id: p.id || ("pe" + Date.now() + Math.floor(Math.random() * 1000)),
+      fecha: p.fecha || "",
+      productoId: p.productoId || "",
+      producto: p.producto || "",
+      categoria: p.categoria || "",
+      cantidad: Number(p.cantidad) || 0,
+      precioUnitario: Number(p.precioUnitario) || 0
+    }));
+  } catch (err) {
+    console.error("No se pudieron cargar los pedidos guardados:", err);
+    return [];
+  }
+}
+
+function guardarPedidos() {
+  try {
+    localStorage.setItem(PEDIDOS_KEY, JSON.stringify(pedidos));
+  } catch (err) {
+    console.error("No se pudieron guardar los pedidos:", err);
+  }
+
+  if (!aplicandoCambioRemoto) { guardarDatosEnNube(); }
+}
+
+let productos = cargarProductosGuardados();
+let pedidos = cargarPedidosGuardados();
+let currentYear = new Date().getFullYear();
+const yearMin = 2025;
+const yearMax = currentYear + 5;
+let currentMonthIndex = 12;
+
+// ─── Helpers ──────────────────────────────────────────────────
+
+function statusData(stock, minimo, consumo) {
+    const cobertura = consumo > 0 ? stock / consumo : 0;
+    if (stock <= minimo) return { text: "Crítico", cls: "status-risk", level: 3, cobertura };
+    if (cobertura < 1.5) return { text: "Bajo", cls: "status-low", level: 2, cobertura };
+    return { text: "Correcto", cls: "status-ok", level: 1, cobertura };
+}
+
+function forecastAnnualUnits(consumo) {
+    return Math.ceil(consumo * 12);
+}
+
+function gastoAnualProducto(prod) {
+    return meses.reduce((total, _, i) => {
+        return total + prod.consumo * (prod.preciosMensuales[i] || prod.costeBase || 0);
+    }, 0);
+}
+
+function formatCurrency(value) {
+    return new Intl.NumberFormat("es-ES", {
+        style: "currency", currency: "EUR", maximumFractionDigits: 2
+    }).format(value || 0);
+}
+
+function formatNumber(value) {
+    return new Intl.NumberFormat("es-ES", { maximumFractionDigits: 0 }).format(value || 0);
+}
+
+// Neutraliza caracteres especiales (", <, >, &, ') antes de meter texto del
+// usuario dentro de HTML, para que un nombre con comillas o símbolos no rompa
+// la tabla ni permita inyectar etiquetas.
+function escaparHTML(v) {
+    return String(v == null ? "" : v)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+// ── Notificaciones en pantalla (sustituyen a los "alert" del navegador) ──────
+// Muestra un aviso en la esquina superior derecha que desaparece solo.
+//   tipo: "error" (rojo), "ok" (verde) o "info" (gris, por defecto).
+function mostrarNotificacion(mensaje, tipo) {
+    let cont = document.getElementById("notificaciones");
+    if (!cont) {
+        cont = document.createElement("div");
+        cont.id = "notificaciones";
+        cont.style.cssText =
+            "position:fixed;top:16px;right:16px;z-index:10000;display:flex;" +
+            "flex-direction:column;gap:10px;max-width:340px;font-family:inherit;";
+        document.body.appendChild(cont);
+    }
+    const colores = { error: "#c0392b", ok: "#1a5c2e", info: "#334155" };
+    const aviso = document.createElement("div");
+    aviso.textContent = mensaje;
+    aviso.style.cssText =
+        "background:" + (colores[tipo] || colores.info) + ";color:#fff;" +
+        "padding:12px 16px;border-radius:10px;font-size:.9rem;font-weight:600;" +
+        "box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;transform:translateX(20px);" +
+        "transition:opacity .25s ease, transform .25s ease;";
+    cont.appendChild(aviso);
+    requestAnimationFrame(function () {
+        aviso.style.opacity = "1";
+        aviso.style.transform = "translateX(0)";
+    });
+    setTimeout(function () {
+        aviso.style.opacity = "0";
+        aviso.style.transform = "translateX(20px)";
+        setTimeout(function () { aviso.remove(); }, 300);
+    }, 3500);
+}
+
+// ─── Inventario ─────────────────────────────────────────────────────────────
+
+function crearFilaProducto(prod) {
+    const tr = document.createElement("tr");
+    tr.dataset.id = prod.id;
+    tr.innerHTML = `
+    <td><input data-field="producto" value="${escaparHTML(prod.producto)}"></td>
+    <td><input data-field="categoria" value="${escaparHTML(prod.categoria)}"></td>
+    <td><input data-field="stock" type="number" min="0" step="1" value="${prod.stock}"></td>
+    <td><input data-field="minimo" type="number" min="0" step="1" value="${prod.minimo}"></td>
+    <td><input data-field="consumo" type="number" min="0" step="0.01" value="${prod.consumo}"></td>
+    <td><input data-field="costeBase" type="number" min="0" step="0.01" value="${prod.costeBase}"></td>
+    <td><input data-field="plazo" type="number" min="0" step="0.5" value="${prod.plazo}"></td>
+    <td class="status-cell"></td>
+    <td class="forecast-units"></td>
+    <td class="forecast-cost"></td>
+    <td class="acciones-cell">
+    <button class="btn btn-secondary btn-precios" type="button">Editar precios</button>
+    <button class="btn btn-danger btn-eliminar" type="button">Eliminar</button>
+    </td>
+    `;
+    inventoryBody.appendChild(tr);
+
+tr.querySelectorAll("input").forEach(input => {
+    input.addEventListener("input", () => actualizarProductoDesdeFila(tr));
+});
+
+tr.querySelector(".btn-precios").addEventListener("click", () => {
+    seleccionarProducto(prod.id);
+    document.getElementById("precios").scrollIntoView({ behavior: "smooth" });
+});
+
+tr.querySelector(".btn-eliminar").addEventListener("click", () => {
+    eliminarProducto(prod.id);
+});
+}
+
+function eliminarProducto(id) {
+    const prod = productos.find(p => p.id === id);
+    const nombre = prod && prod.producto ? prod.producto : "este producto";
+    const confirmado = window.confirm(`¿Seguro que quieres eliminar "${nombre}"? Esta acción no se puede deshacer.`);
+    if (!confirmado) return;
+
+productos = productos.filter(p => p.id !== id);
+    const tr = inventoryBody.querySelector(`tr[data-id="${id}"]`);
+    if (tr) tr.remove();
+    refrescarDashboard();
+}
+
+function actualizarProductoDesdeFila(tr) {
+    const id = tr.dataset.id;
+    const prod = productos.find(p => p.id === id);
+    if (!prod) return;
+    tr.querySelectorAll("input").forEach(input => {
+        const key = input.dataset.field;
+        const value = ["producto","categoria"].includes(key) ? input.value : (Number(input.value) || 0);
+        prod[key] = value;
+    });
+    refrescarDashboard();
+}
+
+// ─── Dashboard ──────────────────────────────────────────────────────────────
+
+function refrescarDashboard() {
+    guardarProductos();
+    let totalGastoAnual = 0;
+    let alertCount = 0;
+    const gastosMensuales = new Array(12).fill(0);
+
+productos.forEach(prod => {
+    const status = statusData(prod.stock, prod.minimo, prod.consumo);
+    const annualUnits = forecastAnnualUnits(prod.consumo);
+    const annualCost = gastoAnualProducto(prod);
+    totalGastoAnual += annualCost;
+    if (status.level >= 2) alertCount++;
+
+                  meses.forEach((_, i) => {
+                      gastosMensuales[i] += prod.consumo * (prod.preciosMensuales[i] || prod.costeBase || 0);
+                  });
+
+                  const tr = inventoryBody.querySelector(`tr[data-id="${prod.id}"]`);
+    if (tr) {
+        tr.querySelector(".status-cell").innerHTML = `<span class="status-chip ${status.cls}">${status.text}</span>`;
+        tr.querySelector(".forecast-units").textContent = formatNumber(annualUnits);
+        tr.querySelector(".forecast-cost").textContent = formatCurrency(annualCost);
+    }
+});
+
+document.getElementById("heroProductos").textContent = formatNumber(productos.length);
+    document.getElementById("heroCoste").textContent = formatCurrency(totalGastoAnual);
+    document.getElementById("heroAlertas").textContent = formatNumber(alertCount);
+
+const maxMes = gastosMensuales.reduce((maxIdx, val, idx, arr) => val > arr[maxIdx] ? idx : maxIdx, 0);
+    document.getElementById("heroMesMax").textContent =
+        gastosMensuales[maxMes] > 0 ? `${meses[maxMes]} · ${formatCurrency(gastosMensuales[maxMes])}` : "–";
+
+renderPriority();
+    renderChart(gastosMensuales);
+  renderChartReal(gastosRealesPorMes(currentYear));
+  renderPieChart();
+    refrescarSelectorProductos();
+  refrescarSelectorPedidos();
+    if (typeof refrescarSelectorReporte === "function") refrescarSelectorReporte();
+    actualizarNotaPeriodo();
+}
+
+// ─── Prioridad ───────────────────────────────────────────────────────────────
+
+function renderPriority() {
+    priorityList.innerHTML = "";
+    if (!productos.length) {
+        priorityList.innerHTML = `<div class="note-item"><p>Añade productos para ver prioridades de compra.</p></div>`;
+        return;
+    }
+    const sorted = [...productos].sort((a, b) => {
+        const sa = statusData(a.stock, a.minimo, a.consumo);
+        const sb = statusData(b.stock, b.minimo, b.consumo);
+        const ca = gastoAnualProducto(a);
+        const cb = gastoAnualProducto(b);
+        return (sb.level - sa.level) || (cb - ca);
+    }).slice(0, 5);
+
+sorted.forEach(prod => {
+    const status = statusData(prod.stock, prod.minimo, prod.consumo);
+    const reorderPoint = Math.ceil(prod.consumo * Math.max(prod.plazo, 1));
+    const div = document.createElement("div");
+    div.className = "note-item";
+    div.innerHTML = `
+    <h5>${escaparHTML(prod.producto) || "Producto sin nombre"}</h5>
+    <p>Estado: <strong>${status.text}</strong> &nbsp;·&nbsp;
+    Gasto anual: <strong>${formatCurrency(gastoAnualProducto(prod))}</strong><br>
+    Punto de pedido sugerido: <strong>${formatNumber(reorderPoint)}</strong></p>
+    `;
+    priorityList.appendChild(div);
+});
+}
+
+// ─── Gráfico ─────────────────────────────────────────────────────────────────
+
+function renderChart(gastosMensuales) {
+    chartBox.innerHTML = "";
+    if (!gastosMensuales.some(v => v > 0)) {
+        chartBox.innerHTML = `<p class="footer-note">No hay datos de gasto para mostrar.</p>`;
+        return;
+    }
+    const max = Math.max(...gastosMensuales, 1);
+    gastosMensuales.forEach((valor, i) => {
+        const col = document.createElement("div");
+        col.className = "bar-col";
+        const altura = Math.max((valor / max) * 100, 5);
+        col.innerHTML = `
+        <div class="bar-track"><div class="bar-fill" style="height:${altura}%"></div></div>
+        <div class="bar-value">${formatCurrency(valor)}</div>
+        <div class="bar-label">${meses[i].slice(0,3)}</div>
+        `;
+        chartBox.appendChild(col);
+    });
+}
+
+function gastosRealesPorMes(year) {
+  const arr = new Array(12).fill(0);
+  pedidos.forEach(p => {
+    if (!p.fecha) return;
+    const d = new Date(p.fecha);
+    if (isNaN(d.getTime()) || d.getFullYear() !== year) return;
+    arr[d.getMonth()] += p.cantidad * p.precioUnitario;
+  });
+  return arr;
+}
+
+function renderChartReal(gastosReales) {
+  const box = document.getElementById("chartBoxReal");
+  if (!box) return;
+  box.innerHTML = "";
+  if (!gastosReales.some(v => v > 0)) {
+    box.innerHTML = "<p class=\"footer-note\">Todavia no has anadido pedidos reales para el ano seleccionado.</p>";
+    return;
+  }
+  const max = Math.max(...gastosReales, 1);
+  gastosReales.forEach((valor, i) => {
+    const col = document.createElement("div");
+    col.className = "bar-col";
+    const altura = Math.max((valor / max) * 100, 5);
+    col.innerHTML = "<div class=\"bar-track\"><div class=\"bar-fill\" style=\"height:" + altura + "%\"></div></div>" +
+      "<div class=\"bar-value\">" + formatCurrency(valor) + "</div>" +
+      "<div class=\"bar-label\">" + meses[i].slice(0,3) + "</div>";
+    box.appendChild(col);
+  });
+}
+
+const PIE_COLORS = ["#01696f","#a86016","#437a22","#a12c7b","#5ea8af","#eea14a","#7fb25f","#db71b6","#6f6d67","#0c4e54"];
+
+function renderPieChart() {
+  const canvas = document.getElementById("pieChart");
+  const legend = document.getElementById("pieLegend");
+  if (!canvas || !legend) return;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  legend.innerHTML = "";
+
+  const usarReales = pedidos.length > 0;
+  const totals = {};
+  if (usarReales) {
+    pedidos.forEach(p => {
+      const key = p.producto || "Sin nombre";
+      totals[key] = (totals[key] || 0) + p.cantidad * p.precioUnitario;
+    });
+  } else {
+    productos.forEach(prod => {
+      const key = prod.producto || "Sin nombre";
+      totals[key] = (totals[key] || 0) + gastoAnualProducto(prod);
+    });
+  }
+
+  const entries = Object.entries(totals).filter(e => e[1] > 0).sort((a, b) => b[1] - a[1]);
+  const total = entries.reduce((s, e) => s + e[1], 0);
+
+  if (!entries.length || total <= 0) {
+    ctx.font = "14px sans-serif";
+    ctx.fillStyle = "#9c9991";
+    ctx.fillText("Sin datos suficientes", 20, canvas.height / 2);
+    return;
+  }
+
+  const cx = canvas.width / 2, cy = canvas.height / 2, radius = Math.min(cx, cy) - 6;
+  let start = -Math.PI / 2;
+  entries.forEach((entry, i) => {
+    const label = entry[0];
+    const value = entry[1];
+    const slice = (value / total) * Math.PI * 2;
+    const color = PIE_COLORS[i % PIE_COLORS.length];
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, radius, start, start + slice);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    start += slice;
+
+    const item = document.createElement("div");
+    item.style.display = "flex";
+    item.style.alignItems = "center";
+    item.style.gap = "8px";
+    item.style.fontSize = "13px";
+    const pct = ((value / total) * 100).toFixed(1);
+    item.innerHTML = "<span style=\"width:12px;height:12px;border-radius:3px;background:" + color + ";display:inline-block;\"></span>" +
+      escaparHTML(label) + ": <strong>" + formatCurrency(value) + "</strong> (" + pct + "%)";
+    legend.appendChild(item);
+  });
+}
+
+
+// ─── Selector de producto ────────────────────────────────────────────────────
+
+// Cuando es true, indica que estás editando un precio en ese momento, para no
+// reconstruir la rejilla de precios (lo que destruiría el campo y el foco).
+let editandoPrecios = false;
+
+function refrescarSelectorProductos() {
+    const selectedId = productoSelector.value;
+    productoSelector.innerHTML = "";
+    const optDefault = document.createElement("option");
+    optDefault.value = "";
+    optDefault.textContent = "Selecciona un producto";
+    productoSelector.appendChild(optDefault);
+
+productos.forEach(prod => {
+    const opt = document.createElement("option");
+    opt.value = prod.id;
+    opt.textContent = prod.producto || `Producto ${prod.id}`;
+    productoSelector.appendChild(opt);
+});
+
+if (productos.some(p => p.id === selectedId)) {
+    productoSelector.value = selectedId;
+    // Si estás editando un precio, NO reconstruimos la rejilla (perderías el
+    // foco). Solo la reconstruimos cuando el cambio viene de otro sitio.
+    if (!editandoPrecios) seleccionarProducto(selectedId);
+}
+}
+
+function seleccionarProducto(id) {
+    const prod = productos.find(p => p.id === id);
+    if (!prod) {
+        monthlyPricesGrid.innerHTML = "";
+        productoResumen.textContent = "Selecciona un producto para editar sus precios.";
+        return;
+    }
+    if (!Array.isArray(prod.preciosMensuales) || prod.preciosMensuales.length !== 12) {
+        prod.preciosMensuales = new Array(12).fill(prod.costeBase || 0);
+    }
+    monthlyPricesGrid.innerHTML = "";
+    meses.forEach((mes, i) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "field";
+        wrapper.innerHTML = `
+        <label>${mes}</label>
+        <input type="number" min="0" step="0.01" value="${prod.preciosMensuales[i]}" data-mes="${i}">
+        `;
+        monthlyPricesGrid.appendChild(wrapper);
+    });
+
+monthlyPricesGrid.querySelectorAll("input").forEach(input => {
+    input.addEventListener("input", () => {
+        const idx = Number(input.dataset.mes);
+        prod.preciosMensuales[idx] = Number(input.value) || 0;
+        editandoPrecios = true;
+        refrescarDashboard();
+        editandoPrecios = false;
+        actualizarResumenProducto(prod);
+    });
+});
+    actualizarResumenProducto(prod);
+}
+
+function actualizarResumenProducto(prod) {
+    const gastosMensuales = meses.map((_, i) => prod.consumo * (prod.preciosMensuales[i] || prod.costeBase || 0));
+    const total = gastosMensuales.reduce((s, v) => s + v, 0);
+    const media = total / 12;
+    const idxMax = gastosMensuales.reduce((maxIdx, val, idx, arr) => val > arr[maxIdx] ? idx : maxIdx, 0);
+    const idxMin = gastosMensuales.reduce((minIdx, val, idx, arr) => val < arr[minIdx] ? idx : minIdx, 0);
+    productoResumen.innerHTML = `
+    Gasto anual previsto: <strong>${formatCurrency(total)}</strong><br>
+    Gasto medio mensual: <strong>${formatCurrency(media)}</strong><br>
+    Mes de mayor gasto: <strong>${meses[idxMax]} · ${formatCurrency(gastosMensuales[idxMax])}</strong><br>
+    Mes de menor gasto: <strong>${meses[idxMin]} · ${formatCurrency(gastosMensuales[idxMin])}</strong>
+    `;
+}
+
+productoSelector.addEventListener("change", () => {
+    seleccionarProducto(productoSelector.value);
+});
+
+// ─── Periodo ─────────────────────────────────────────────────────────────────
+
+function initPeriodo() {
+    const yearSelect = document.getElementById("yearSelect");
+    const monthSelect = document.getElementById("monthSelect");
+    if (!yearSelect || !monthSelect) return;
+
+yearSelect.innerHTML = "";
+    for (let y = yearMin; y <= yearMax; y++) {
+        const opt = document.createElement("option");
+        opt.value = String(y);
+        opt.textContent = String(y);
+        yearSelect.appendChild(opt);
+    }
+    yearSelect.value = String(currentYear);
+
+monthSelect.innerHTML = "";
+    meses.forEach((mes, idx) => {
+        const opt = document.createElement("option");
+        opt.value = String(idx);
+        opt.textContent = mes;
+        monthSelect.appendChild(opt);
+    });
+    const optAll = document.createElement("option");
+    optAll.value = "12";
+    optAll.textContent = "Todo el año";
+    monthSelect.appendChild(optAll);
+    monthSelect.value = "12";
+
+yearSelect.addEventListener("change", () => {
+    currentYear = Number(yearSelect.value);
+    refrescarDashboard();
+});
+    monthSelect.addEventListener("change", () => {
+        currentMonthIndex = Number(monthSelect.value);
+        refrescarDashboard();
+    });
+}
+
+function actualizarNotaPeriodo() {
+    const note = document.getElementById("periodNote");
+    if (!note) return;
+    const mesRef = currentMonthIndex === 12 ? "Todo el año" : meses[currentMonthIndex];
+    note.textContent = `Año seleccionado: ${currentYear} · Mes de referencia: ${mesRef}`;
+}
+
+// ─── Tema ────────────────────────────────────────────────────────────────────
+
+function initTheme() {
+    const btn = document.querySelector("[data-theme-toggle]");
+    const root = document.documentElement;
+    if (!btn) return;
+    let theme = localStorage.getItem("theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+
+const render = () => {
+    root.setAttribute("data-theme", theme);
+    btn.innerHTML = theme === "dark"
+    ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <circle cx="12" cy="12" r="5"></circle>
+    <line x1="12" y1="1" x2="12" y2="3"></line>
+    <line x1="12" y1="21" x2="12" y2="23"></line>
+    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+    <line x1="1" y1="12" x2="3" y2="12"></line>
+    <line x1="21" y1="12" x2="23" y2="12"></line>
+    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>`
+        : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>`;
+};
+
+btn.addEventListener("click", () => {
+    theme = theme === "dark" ? "light" : "dark";
+    localStorage.setItem("theme", theme);
+    render();
+});
+
+render();
+}
+
+// ─── Añadir producto ──────────────────────────────────────────────────────────
+
+function crearProductoVacio() {
+    return {
+        id: "p" + Date.now() + Math.floor(Math.random() * 1000),
+        producto: "",
+        categoria: "",
+        stock: 0,
+        minimo: 0,
+        consumo: 0,
+        costeBase: 0,
+        plazo: 1,
+        preciosMensuales: new Array(12).fill(0)
+    };
+}
+
+function initAddRow() {
+    const btn = document.getElementById("addRow");
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+        const prod = crearProductoVacio();
+        productos.push(prod);
+        crearFilaProducto(prod);
+      crearFilaReporte(prod);
+        refrescarDashboard();
+    });
+}
+
+// ─── Pedidos / compras reales ────────────────────────────────────────────────
+
+function refrescarSelectorPedidos() {
+  const select = document.getElementById("pedido-producto");
+  if (!select) return;
+  const selectedId = select.value;
+  select.innerHTML = "";
+  const optDefault = document.createElement("option");
+  optDefault.value = "";
+  optDefault.textContent = "Selecciona un producto...";
+  select.appendChild(optDefault);
+  productos.forEach(prod => {
+    const opt = document.createElement("option");
+    opt.value = prod.id;
+    opt.textContent = prod.producto || ("Producto " + prod.id);
+    select.appendChild(opt);
+  });
+  if (productos.some(p => p.id === selectedId)) select.value = selectedId;
+}
+
+function initPedidos() {
+  const select = document.getElementById("pedido-producto");
+  const btn = document.getElementById("addPedido");
+  const fechaInput = document.getElementById("pedido-fecha");
+  if (!select || !btn) return;
+
+  if (fechaInput && !fechaInput.value) {
+    fechaInput.value = new Date().toISOString().split("T")[0];
+  }
+
+  select.addEventListener("change", () => {
+    const prod = productos.find(p => p.id === select.value);
+    const precioInput = document.getElementById("pedido-precio");
+    if (prod && precioInput && !precioInput.value) {
+      precioInput.value = prod.costeBase || "";
+    }
+  });
+
+  btn.addEventListener("click", () => {
+    const prodId = select.value;
+    const prod = productos.find(p => p.id === prodId);
+    if (!prod) { mostrarNotificacion("Selecciona un producto.", "error"); return; }
+    const cantidad = Number(document.getElementById("pedido-cantidad").value) || 0;
+    const precio = Number(document.getElementById("pedido-precio").value) || 0;
+    const fecha = fechaInput ? fechaInput.value : "";
+    if (cantidad <= 0) { mostrarNotificacion("Indica una cantidad mayor que 0.", "error"); return; }
+    if (!fecha) { mostrarNotificacion("Indica la fecha del pedido.", "error"); return; }
+
+    pedidos.push({
+      id: "pe" + Date.now() + Math.floor(Math.random() * 1000),
+      fecha,
+      productoId: prod.id,
+      producto: prod.producto || "Producto sin nombre",
+      categoria: prod.categoria || "",
+      cantidad,
+      precioUnitario: precio
+    });
+
+    prod.stock = (Number(prod.stock) || 0) + cantidad;
+    const tr = inventoryBody.querySelector("tr[data-id=\"" + prod.id + "\"]");
+    if (tr) {
+      const stockInput = tr.querySelector("input[data-field=\"stock\"]");
+      if (stockInput) stockInput.value = prod.stock;
+    }
+
+    guardarPedidos();
+    document.getElementById("pedido-cantidad").value = "";
+    document.getElementById("pedido-precio").value = "";
+    renderPedidos();
+    refrescarDashboard();
+  });
+}
+
+function eliminarPedido(id) {
+  const pedido = pedidos.find(p => p.id === id);
+  if (pedido) {
+    const prod = productos.find(p => p.id === pedido.productoId);
+    if (prod) {
+      prod.stock = Math.max(0, (Number(prod.stock) || 0) - pedido.cantidad);
+      const tr = inventoryBody.querySelector("tr[data-id=\"" + prod.id + "\"]");
+      if (tr) {
+        const stockInput = tr.querySelector("input[data-field=\"stock\"]");
+        if (stockInput) stockInput.value = prod.stock;
+      }
+      guardarProductos();
+    }
+  }
+  pedidos = pedidos.filter(p => p.id !== id);
+  guardarPedidos();
+  renderPedidos();
+  refrescarDashboard();
+}
+
+function renderPedidos() {
+  const tbody = document.getElementById("pedidosBody");
+  const resumen = document.getElementById("pedidosResumen");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  const ordenados = [...pedidos].sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+  ordenados.forEach(p => {
+    const tr = document.createElement("tr");
+    const total = p.cantidad * p.precioUnitario;
+    tr.innerHTML = "<td>" + (p.fecha || "-") + "</td>" +
+      "<td>" + escaparHTML(p.producto) + "</td>" +
+      "<td>" + formatNumber(p.cantidad) + "</td>" +
+      "<td>" + formatCurrency(p.precioUnitario) + "</td>" +
+      "<td>" + formatCurrency(total) + "</td>" +
+      "<td><button class=\"btn btn-danger btn-eliminar-pedido\" data-id=\"" + p.id + "\" type=\"button\">Eliminar</button></td>";
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll(".btn-eliminar-pedido").forEach(btn => {
+    btn.addEventListener("click", () => eliminarPedido(btn.dataset.id));
+  });
+  if (resumen) {
+    const totalGeneral = pedidos.reduce((s, p) => s + p.cantidad * p.precioUnitario, 0);
+    resumen.innerHTML = "Pedidos registrados: <strong>" + formatNumber(pedidos.length) + "</strong><br>" +
+      "Gasto real acumulado: <strong>" + formatCurrency(totalGeneral) + "</strong>";
+  }
+}
+
+
+// ─── Exportar CSV ─────────────────────────────────────────────────────────────
+
+function exportarCSV() {
+    const headers = ["Producto","Categoria","Stock actual","Stock minimo","Consumo mensual","Coste base","Plazo entrega","Gasto anual"];
+    const filas = productos.map(prod => [
+        prod.producto,
+        prod.categoria,
+        prod.stock,
+        prod.minimo,
+        prod.consumo,
+        prod.costeBase,
+        prod.plazo,
+        gastoAnualProducto(prod).toFixed(2)
+        ]);
+    const csv = [headers, ...filas].map(fila => fila.map(campo => `"${String(campo).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "inventario-limpieza.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function initExportCsv() {
+    const btn = document.getElementById("exportarCsv");
+    if (!btn) return;
+    btn.addEventListener("click", exportarCSV);
+}
+
+// Hace que la sección de inventario se pueda plegar/desplegar al pulsar en su
+// cabecera. La flecha indica el estado (▾ desplegada, ▸ plegada).
+function initInventarioDesplegable() {
+    const cab = document.getElementById("inventarioToggle");
+    const caret = document.getElementById("inventarioCaret");
+    const seccion = document.getElementById("inventario");
+    if (!cab || !seccion) return;
+    const body = seccion.querySelector(".panel-body");
+    if (!body) return;
+    cab.addEventListener("click", function () {
+        const oculto = body.style.display === "none";
+        body.style.display = oculto ? "" : "none";
+        if (caret) caret.style.transform = oculto ? "rotate(90deg)" : "rotate(0deg)";
+        cab.setAttribute("aria-expanded", oculto ? "true" : "false");
+    });
+}
+
+// ─── Inicio ───────────────────────────────────────────────────────────────────
+
+productos.forEach(prod => crearFilaProducto(prod));
+productos.forEach(prod => crearFilaReporte(prod));
+initTheme();
+initPeriodo();
+initAddRow();
+initExportCsv();
+initInventarioDesplegable();
+initPedidos();
+renderPedidos();
+refrescarDashboard();
+// La conexión con la base de datos ya NO se hace aquí al arrancar, sino
+// únicamente después de iniciar sesión (ver onAuthStateChanged más abajo).
+let nubeIniciadaTrasLogin = false;
+
+// ===== REPORTE SEMANAL =====
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx-RFB7T2ZnDsKzYjdE4g4in2YeNCfG6tOTAKGL7RFMSHs58JQZE72EcNd2Iy6iwamy3A/exec';
+
+function crearFilaReporte(prod) {
+  if (!reporteBody) return;
+  const tr = document.createElement('tr');
+  tr.dataset.id = prod.id;
+  tr.innerHTML = `
+  <td>${escaparHTML(prod.producto) || 'Producto sin nombre'}</td>
+  <td>${escaparHTML(prod.categoria)}</td>
+  <td class="rep-stock-actual">${formatNumber(prod.stock)}</td>
+  <td><input type="number" class="rep-unidades-input" min="0" step="1" value="0" data-aplicado="0" style="width:100px;"></td>
+  `;
+  reporteBody.appendChild(tr);
+
+  // Nota: el stock NO se descuenta mientras escribes. El campo solo anota las
+  // unidades gastadas; el descuento real se aplica al pulsar "Enviar reporte"
+  // y únicamente si el guardado se confirma correctamente.
+}
+
+function actualizarStockEnTablaReporte() {
+  if (!reporteBody) return;
+  productos.forEach(prod => {
+    const tr = reporteBody.querySelector(`tr[data-id="${prod.id}"]`);
+    if (tr) {
+      const celda = tr.querySelector('.rep-stock-actual');
+      if (celda) celda.textContent = formatNumber(prod.stock);
+    }
+  });
+}
+
+// Inicializa la fecha y semana del reporte
+window.addEventListener('DOMContentLoaded', () => {
+  const hoy = new Date();
+  const repFecha = document.getElementById('rep-fecha');
+  const repAnio = document.getElementById('rep-anio');
+  const repSemana = document.getElementById('rep-semana');
+  if (repFecha) repFecha.value = hoy.toISOString().split('T')[0];
+  if (repAnio) repAnio.value = hoy.getFullYear();
+  if (repSemana) {
+    repSemana.value = numeroSemanaISO(hoy);
+  }
+});
+
+// Número de semana según el estándar ISO 8601 (semana empieza en lunes; la
+// semana 1 es la que contiene el primer jueves del año). Es el criterio que
+// usan los calendarios europeos.
+function numeroSemanaISO(fecha) {
+  const d = new Date(Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()));
+  const diaSemana = d.getUTCDay() || 7; // lunes=1 ... domingo=7
+  d.setUTCDate(d.getUTCDate() + 4 - diaSemana); // jueves de esta semana
+  const inicioAnio = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - inicioAnio) / 86400000) + 1) / 7);
+}
+
+async function enviarReporteSemanal() {
+  if (!reporteBody) { mostrarNotificacion('No se encontró la tabla de reporte.', 'error'); return; }
+
+  const filas = Array.from(reporteBody.querySelectorAll('tr')).map(tr => {
+    const id = tr.dataset.id;
+    const prod = productos.find(p => p.id === id);
+    const input = tr.querySelector('.rep-unidades-input');
+    const unidades = input ? Math.max(0, parseInt(input.value) || 0) : 0;
+    return { prod, unidades, input };
+  }).filter(f => f.prod && f.unidades > 0);
+
+  if (filas.length === 0) { mostrarNotificacion('Indica las unidades gastadas de al menos un producto.', 'error'); return; }
+
+  const estado = document.getElementById('rep-estado');
+  if (estado) {
+    estado.textContent = 'Enviando...';
+    estado.style.color = '#e67e22';
+  }
+
+  const reportes = filas.map(f => {
+    const antes = Number(f.prod.stock) || 0;
+    const despues = Math.max(0, antes - f.unidades);
+    return {
+      producto: f.prod.producto,
+      categoria: f.prod.categoria,
+      proveedor: '',
+      stockFisico: despues,   // stock que queda tras descontar lo gastado
+      stockTeorico: antes,    // stock que había antes de descontar
+      entradasSemana: 0,
+      salidasSemana: f.unidades,
+      observaciones: ''
+    };
+  });
+
+  const payload = {
+    fecha: document.getElementById('rep-fecha').value,
+    anio: parseInt(document.getElementById('rep-anio').value),
+    semana: parseInt(document.getElementById('rep-semana').value),
+    reportes
+  };
+
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.resultado === 'ok') {
+      if (estado) {
+        estado.textContent = `Guardado correctamente (${data.filas} productos)`;
+        estado.style.color = '#1a5c2e';
+      }
+      // Envío confirmado: ahora sí descontamos el stock de cada producto.
+      filas.forEach(f => {
+        f.prod.stock = Math.max(0, (Number(f.prod.stock) || 0) - f.unidades);
+        f.input.value = '0';
+        f.input.dataset.aplicado = '0';
+      });
+      guardarProductos();
+      refrescarDashboard();
+    } else {
+      if (estado) {
+        estado.textContent = 'Error: ' + data.mensaje;
+        estado.style.color = '#c0392b';
+      }
+    }
+  } catch(e) {
+    if (estado) {
+      estado.textContent = 'Error de conexión';
+      estado.style.color = '#c0392b';
+    }
+  }
+}
+
+
+// ========== FIREBASE AUTH ==========
+
+function loginConFirebase() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errorEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+
+  errorEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Entrando...';
+
+  if (typeof firebase === 'undefined' || !firebase.auth) {
+    errorEl.textContent = 'Firebase Auth no disponible.';
+    errorEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Entrar';
+    return;
+  }
+
+  firebase.auth().signInWithEmailAndPassword(email, password)
+    .then(() => {
+      btn.textContent = 'Entrar';
+      btn.disabled = false;
+    })
+    .catch((error) => {
+      btn.disabled = false;
+      btn.textContent = 'Entrar';
+      switch (error.code) {
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+        case 'auth/invalid-credential':
+          errorEl.textContent = 'Correo o contrasena incorrectos.';
+          break;
+        case 'auth/invalid-email':
+          errorEl.textContent = 'El correo no es valido.';
+          break;
+        case 'auth/too-many-requests':
+          errorEl.textContent = 'Demasiados intentos. Espera un momento.';
+          break;
+        default:
+          errorEl.textContent = 'Error: ' + error.message;
+      }
+      errorEl.style.display = 'block';
+    });
+}
+
+function cerrarSesion() {
+  if (typeof firebase !== 'undefined' && firebase.auth) {
+    firebase.auth().signOut();
+  }
+}
+
+// Escuchar cambios de sesion
+if (typeof firebase !== 'undefined') {
+  firebase.auth().onAuthStateChanged((user) => {
+    const overlay = document.getElementById('loginOverlay');
+    const appShell = document.querySelector('.zoom-wrapper');
+    if (user) {
+      // Usuario logueado: ocultar login, mostrar app
+      if (overlay) overlay.style.display = 'none';
+      if (appShell) appShell.style.visibility = 'visible';
+      // Conectamos con la base de datos SOLO tras iniciar sesión, y una sola
+      // vez por sesión (onAuthStateChanged puede dispararse varias veces).
+      if (!nubeIniciadaTrasLogin) {
+        nubeIniciadaTrasLogin = true;
+        cargarDatosDesdeNube();
+        iniciarSincronizacionNube();
+      }
+    } else {
+      // Sin sesion: mostrar login, ocultar app
+      if (overlay) overlay.style.display = 'flex';
+      if (appShell) appShell.style.visibility = 'hidden';
+    }
+  });
+}
