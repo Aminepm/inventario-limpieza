@@ -556,6 +556,10 @@ function renderPieChart() {
 
 // ─── Selector de producto ────────────────────────────────────────────────────
 
+// Cuando es true, indica que estás editando un precio en ese momento, para no
+// reconstruir la rejilla de precios (lo que destruiría el campo y el foco).
+let editandoPrecios = false;
+
 function refrescarSelectorProductos() {
     const selectedId = productoSelector.value;
     productoSelector.innerHTML = "";
@@ -573,7 +577,9 @@ productos.forEach(prod => {
 
 if (productos.some(p => p.id === selectedId)) {
     productoSelector.value = selectedId;
-    seleccionarProducto(selectedId);
+    // Si estás editando un precio, NO reconstruimos la rejilla (perderías el
+    // foco). Solo la reconstruimos cuando el cambio viene de otro sitio.
+    if (!editandoPrecios) seleccionarProducto(selectedId);
 }
 }
 
@@ -602,7 +608,9 @@ monthlyPricesGrid.querySelectorAll("input").forEach(input => {
     input.addEventListener("input", () => {
         const idx = Number(input.dataset.mes);
         prod.preciosMensuales[idx] = Number(input.value) || 0;
+        editandoPrecios = true;
         refrescarDashboard();
+        editandoPrecios = false;
         actualizarResumenProducto(prod);
     });
 });
