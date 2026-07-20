@@ -1175,6 +1175,19 @@ function resetearPassword() {
   });
 }
 
+// Iniciar sesion al pulsar Enter en los campos de login
+['loginEmail', 'loginPassword'].forEach(function(id) {
+  const campo = document.getElementById(id);
+  if (campo) {
+    campo.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        loginConFirebase();
+      }
+    });
+  }
+});
+
 function cerrarSesion() {
   if (typeof firebase !== 'undefined' && firebase.auth) {
     firebase.auth().signOut();
