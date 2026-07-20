@@ -924,7 +924,133 @@ function exportarCSV() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 }
+async function exportarDashboardExcel() {
+  // === DATOS (ajusta los nombres a tus variables reales) ===
+  // pedidos: array de líneas con {producto, categoria, cantidad, precioUnitario, total, fecha}
+  // inventario: array con {producto, categoria, stock, minimo, consumo, coste}
+  const inv = inventario;             // <-- tu array real de inventario
+  const lineas = pedidos;            // <-- tu array real de pedidos
 
+  const eur = '#,##0.00" €"';
+  const totalGasto = lineas.reduce((a, b) => a + (b.total || 0), 0);
+  const valorInv = inv.reduce((a, b) => a + (b.stock * b.coste), 0);
+  const bajoMin = inv.filter(x => x.stock < x.minimo).length;
+
+  // Gasto por mes (índice 0=Enero ... 11=Diciembre)
+  const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const gastoMes = new Array(12).fill(0);
+  lineas.forEach(l => {
+    const m = parseInt((l.fecha || '').slice(5, 7), 10) - 1;
+    if (m >= 0 && m < 12) gastoMes[m] += (l.total || 0);
+  });
+
+  const wb = new ExcelJS.Workbook();
+
+  // ---------- HOJA 1: DASHBOARD ----------
+  const d = wb.addWorksheet('Dashboard');
+  d.mergeCells('A1:F1');
+  d.getCell('A1').value = 'CONTROL DE STOCK & GASTO · MATERIAL LIMPIEZA';
+  d.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+  d.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF01696F' } };
+  d.getRow(1).height = 24;
+
+  // KPIs
+  const kpis = [
+    ['GASTO TOTAL', totalGasto, eur],
+    ['VALOR INVENTARIO', valorInv, eur],
+    ['PRODUCTOS', inv.length, '0'],
+    ['BAJO MÍNIMO', bajoMin, '0'],
+  ];
+  kpis.forEach((k, i) => {
+    const col = 1 + i;
+    const c1 = d.getCell(3, col); c1.value = k[0];
+    c1.font = { bold: true, size: 9, color: { argb: 'FF8A8577' } };
+    const c2 = d.getCell(4, col); c2.value = k[1]; c2.numFmt = k[2];
+    c2.font = { bold: true, size: 14 };
+  });
+
+  // Tabla ABC (gasto por producto)
+  const abc = [...lineas].sort((a, b) => b.total - a.total);
+  let r = 6;
+  d.getCell(r, 1).value = 'ANÁLISIS ABC';
+  d.getCell(r, 1).font = { bold: true, color: { argb: 'FF01696F' } };
+  r++;
+  ['Producto', 'Gasto', '% total', 'Clase'].forEach((h, i) => {
+    const c = d.getCell(r, 1 + i);
+    c.value = h; c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF01696F' } };
+  });
+  let acc = 0;
+  abc.forEach(x => {
+    r++;
+    const pct = x.total / totalGasto * 100;
+    const prev = acc; acc += pct;
+    const clase = prev < 80 ? 'A' : (prev < 95 ? 'B' : 'C');
+    d.getCell(r, 1).value = x.producto;
+    d.getCell(r, 2).value = x.total; d.getCell(r, 2).numFmt = eur;
+    d.getCell(r, 3).value = pct / 100; d.getCell(r, 3).numFmt = '0.0%';
+    d.getCell(r, 4).value = clase;
+  });
+
+  // Alertas de stock con semáforo (color de celda)
+  r += 2;
+  d.getCell(r, 1).value = 'ALERTAS DE STOCK';
+  d.getCell(r, 1).font = { bold: true, color: { argb: 'FF01696F' } };
+  r++;
+  ['Producto', 'Stock', 'Mínimo', 'Estado'].forEach((h, i) => {
+    const c = d.getCell(r, 1 + i);
+    c.value = h; c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF01696F' } };
+  });
+  inv.forEach(x => {
+    r++;
+    const estado = x.stock < x.minimo ? 'FFC0392B' : (x.stock < x.minimo * 1.5 ? 'FFE08E0B' : 'FF27AE60');
+    d.getCell(r, 1).value = x.producto;
+    d.getCell(r, 2).value = x.stock;
+    d.getCell(r, 3).value = x.minimo;
+    const est = d.getCell(r, 4);
+    est.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: estado } };
+  });
+
+  d.columns.forEach(c => { c.width = 18; });
+
+  // ---------- HOJA 2: GASTOS MENSUALES + GRÁFICO DE PUNTOS ----------
+  const g = wb.addWorksheet('Gastos mensuales');
+  g.getCell('A1').value = 'Mes';
+  g.getCell('B1').value = 'Gasto (€)';
+  g.getRow(1).font = { bold: true };
+  meses.forEach((m, i) => {
+    g.getCell(i + 2, 1).value = i + 1;        // eje X numérico (1..12)
+    g.getCell(i + 2, 2).value = gastoMes[i];  // eje Y (€)
+    g.getCell(i + 2, 2).numFmt = eur;
+  });
+
+  // Gráfico de dispersión (puntos) — API no oficial de ExcelJS
+  try {
+    g.addChart?.({
+      type: 'scatter',
+      title: { name: 'Gasto mensual' },
+      series: [{
+        name: 'Gasto real',
+        xData: `'Gastos mensuales'!$A$2:$A$13`,
+        yData: `'Gastos mensuales'!$B$2:$B$13`,
+      }],
+      position: { from: { col: 3, row: 1 }, to: { col: 12, row: 20 } },
+    });
+  } catch (e) {
+    console.warn('No se pudo insertar el gráfico:', e);
+  }
+
+  // ---------- DESCARGA ----------
+  const hoy = new Date().toISOString().slice(0, 10);
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `control-gasto-limpieza-${hoy}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 function initExportCsv() {
     const btn = document.getElementById("exportarCsv");
     if (!btn) return;
