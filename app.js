@@ -1141,6 +1141,40 @@ function loginConFirebase() {
     });
 }
 
+function resetearPassword() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const errorEl = document.getElementById('loginError');
+  if (!email) {
+    errorEl.textContent = 'Escribe tu correo primero para restablecer la contrasena.';
+    errorEl.style.color = '#dc2626';
+    errorEl.style.display = 'block';
+    return;
+  }
+  if (typeof firebase === 'undefined' || !firebase.auth) {
+    errorEl.textContent = 'Firebase Auth no disponible.';
+    errorEl.style.color = '#dc2626';
+    errorEl.style.display = 'block';
+    return;
+  }
+  firebase.auth().sendPasswordResetEmail(email)
+  .then(() => {
+    errorEl.textContent = 'Te hemos enviado un correo para restablecer tu contrasena.';
+    errorEl.style.color = '#059669';
+    errorEl.style.display = 'block';
+  })
+  .catch((error) => {
+    if (error.code === 'auth/invalid-email') {
+      errorEl.textContent = 'El correo no es valido.';
+    } else if (error.code === 'auth/user-not-found') {
+      errorEl.textContent = 'No existe ninguna cuenta con ese correo.';
+    } else {
+      errorEl.textContent = 'Error: ' + error.message;
+    }
+    errorEl.style.color = '#dc2626';
+    errorEl.style.display = 'block';
+  });
+}
+
 function cerrarSesion() {
   if (typeof firebase !== 'undefined' && firebase.auth) {
     firebase.auth().signOut();
