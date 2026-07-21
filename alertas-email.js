@@ -11,7 +11,7 @@
   /* ---- Datos de EmailJS ---- */
   var EMAILJS_PUBLIC_KEY  = "xexnAhWf-KUNog_p_";
   var EMAILJS_SERVICE_ID  = "service_y2zxez1";
-  var EMAILJS_TEMPLATE_ID = "oky2w4q";
+  var EMAILJS_TEMPLATE_ID = "template_iaf12qr";
 
   /* Destinatarios de las alertas */
   var DESTINATARIOS = "Renzo.Neyra@cbre.com, auxiliar.vilamarina@gbp.cat";
