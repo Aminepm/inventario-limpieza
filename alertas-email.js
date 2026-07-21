@@ -8,10 +8,10 @@
 (function () {
   "use strict";
 
-  /* ---- 1) CONFIGURA AQUI TUS DATOS DE EMAILJS ---- */
-  var EMAILJS_PUBLIC_KEY  = "TU_PUBLIC_KEY";
-  var EMAILJS_SERVICE_ID  = "TU_SERVICE_ID";
-  var EMAILJS_TEMPLATE_ID = "TU_TEMPLATE_ID";
+  /* ---- Datos de EmailJS ---- */
+  var EMAILJS_PUBLIC_KEY  = "xexnAhWf-KUNog_p_";
+  var EMAILJS_SERVICE_ID  = "service_q0t8brj";
+  var EMAILJS_TEMPLATE_ID = "oky2w4q";
 
   /* Destinatarios de las alertas */
   var DESTINATARIOS = "Renzo.Neyra@cbre.com, auxiliar.vilamarina@gbp.cat";
@@ -98,11 +98,19 @@
              " | nivel: " + (p.nivel === "rojo" ? "CRITICO" : "Bajo");
     }).join("\n");
 
+    var fecha = new Date().toLocaleString("es-ES");
+    var mensaje = "Se han detectado " + nuevos.length +
+                  " producto(s) en escasez el " + fecha + ":\n\n" + detalle;
+
     var params = {
       to_email: DESTINATARIOS,
-      fecha: new Date().toLocaleString("es-ES"),
+      name: "Sistema de Inventario - Limpieza Vilamarina",
+      time: fecha,
+      title: "Alerta de reposicion",
       total_alertas: String(nuevos.length),
-      productos: detalle
+      message: mensaje,
+      productos: detalle,
+      fecha: fecha
     };
 
     emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, params)
