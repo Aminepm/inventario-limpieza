@@ -475,23 +475,27 @@ sorted.forEach(prod => {
 // ─── Gráfico ─────────────────────────────────────────────────────────────────
 
 function renderChart(gastosMensuales) {
-    chartBox.innerHTML = "";
-    if (!gastosMensuales.some(v => v > 0)) {
-        chartBox.innerHTML = `<p class="footer-note">No hay datos de gasto para mostrar.</p>`;
-        return;
-    }
-    const max = Math.max(...gastosMensuales, 1);
-    gastosMensuales.forEach((valor, i) => {
-        const col = document.createElement("div");
-        col.className = "bar-col";
-        const altura = Math.max((valor / max) * 100, 5);
-        col.innerHTML = `
-        <div class="bar-track"><div class="bar-fill" style="height:${altura}%"></div></div>
-        <div class="bar-value">${formatCurrency(valor)}</div>
-        <div class="bar-label">${meses[i].slice(0,3)}</div>
-        `;
-        chartBox.appendChild(col);
-    });
+  chartBox.innerHTML = "";
+  if (!gastosMensuales.some(v => v > 0)) {
+    chartBox.innerHTML = `<p class="footer-note">No hay datos de gasto para mostrar.</p>`;
+    return;
+  }
+  // Agrupar los 12 meses en 4 trimestres (suma de cada 3 meses)
+  const trimestres = [0, 1, 2, 3].map(q =>
+    gastosMensuales.slice(q * 3, q * 3 + 3).reduce((a, b) => a + b, 0)
+  );
+  const etiquetasTrim = ["1T", "2T", "3T", "4T"];
+  const max = Math.max(...trimestres, 1);
+  trimestres.forEach((valor, i) => {
+    const col = document.createElement("div");
+    col.className = "bar-col";
+    const altura = Math.max((valor / max) * 100, 5);
+    col.innerHTML = `
+      <div class="bar-track"><div class="bar-fill" style="height:${altura}%"></div></div>
+      <div class="bar-value">${formatCurrency(valor)}</div>
+      <div class="bar-label">${etiquetasTrim[i]}</div>`;
+    chartBox.appendChild(col);
+  });
 }
 
 function gastosRealesPorMes(year) {
