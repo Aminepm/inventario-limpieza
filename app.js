@@ -1099,19 +1099,36 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx-RFB7T2ZnDsKz
 
 function crearFilaReporte(prod) {
   if (!reporteBody) return;
-  const tr = document.createElement('tr');
+  const tr = document.createElement("tr");
   tr.dataset.id = prod.id;
+  const stockActual = Number(prod.stock) || 0;
   tr.innerHTML = `
   <td>${escaparHTML(prod.producto) || 'Producto sin nombre'}</td>
   <td>${escaparHTML(prod.categoria)}</td>
   <td class="rep-stock-actual">${formatNumber(prod.stock)}</td>
+  <td><input type="number" class="rep-existencias-input" min="0" step="1" placeholder="quedan\u2026" style="width:100px;"></td>
   <td><input type="number" class="rep-unidades-input" min="0" step="1" value="0" data-aplicado="0" style="width:100px;"></td>
   `;
   reporteBody.appendChild(tr);
 
+  // Columna "Existencias en stock": al escribir las unidades que quedan
+  // fisicamente, calculamos automaticamente las gastadas = stock - existencias.
+  const existInput = tr.querySelector(".rep-existencias-input");
+  const gastInput = tr.querySelector(".rep-unidades-input");
+  if (existInput && gastInput) {
+    existInput.addEventListener("input", function () {
+      if (existInput.value === "") return; // vacio: no toca el campo de gastadas
+      let quedan = parseInt(existInput.value) || 0;
+      if (quedan < 0) quedan = 0;
+      if (quedan > stockActual) quedan = stockActual; // no puede quedar mas de lo que habia
+      existInput.value = quedan;
+      gastInput.value = Math.max(0, stockActual - quedan);
+    });
+  }
+
   // Nota: el stock NO se descuenta mientras escribes. El campo solo anota las
   // unidades gastadas; el descuento real se aplica al pulsar "Enviar reporte"
-  // y únicamente si el guardado se confirma correctamente.
+  // y unicamente si el guardado se confirma correctamente.
 }
 
 function actualizarStockEnTablaReporte() {
