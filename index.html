@@ -52,6 +52,7 @@
 <a href="#gasto">Gasto mensual</a>
 <a href="#pedidos">Pedidos</a>
 <a href="#reporte">Reporte semanal</a>
+<a href="#presupuesto-estimado">Presupuesto estimado</a>
 </nav>
 <div class="sidebar-card">
 <h3>Descripción rápida</h3>
@@ -223,6 +224,19 @@
 </section>
 
 <!-- ===== REPORTE SEMANAL ===== -->
+<section class="panel" id="presupuesto-estimado" style="margin-top:24px;">
+<h1>Presupuesto estimado seg&uacute;n consumo real</h1>
+<p style="color:#6b7280; margin-bottom:4px;">Introduce el consumo anual aproximado de cada producto (por ejemplo, con los datos del a&ntilde;o pasado). La app calcula el presupuesto = consumo &times; precio unitario medio de tus pedidos reales. Puedes rellenarlo poco a poco.</p>
+<div class="table-wrap" style="margin-bottom:16px;">
+    <table>
+    <thead>
+    <tr><th>Producto</th><th>Consumo anual estimado (uds.)</th><th>Precio unitario</th><th>Presupuesto estimado</th></tr>
+    </thead>
+    <tbody id="presupuestoEstimadoBody"></tbody>
+    </table>
+</div>
+<div style="font-weight:700; font-size:1.1rem;">Presupuesto anual estimado total: <span id="presupuestoEstimadoTotal">Sin datos todavia</span></div>
+</section>
 <section class="panel" id="reporte" style="margin-top:40px;">
 <div class="panel-header">
 <div>
