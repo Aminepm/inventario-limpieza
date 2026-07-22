@@ -1411,9 +1411,16 @@ function renderPresupuestoEstimado() {
       <td class="pe-estimado" style="font-weight:600;">${consumo > 0 ? formatNumber(estimado) + ' \u20ac' : '\u2014'}</td>
     `;
     const input = tr.querySelector(".pe-consumo-input");
+    const celdaEstimado = tr.querySelector(".pe-estimado");
+    // Mientras escribes: solo actualizamos el dato y el importe de ESTA fila,
+    // sin reconstruir la tabla (asi el campo no pierde el foco en cada tecla).
     input.addEventListener("input", function () {
       const val = Math.max(0, parseInt(input.value) || 0);
       prod.consumoAnual2025 = val;
+      if (celdaEstimado) celdaEstimado.textContent = val > 0 ? (formatNumber(val * precio) + " \u20ac") : "\u2014";
+    });
+    // Al salir del campo (o cambiar): guardamos y recalculamos el total.
+    input.addEventListener("change", function () {
       if (typeof guardarProductos === "function") guardarProductos();
       renderPresupuestoEstimado();
     });
