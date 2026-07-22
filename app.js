@@ -93,6 +93,7 @@ function normalizarProductosNube(datos) {
     consumo: Number(p.consumo) || 0,
     costeBase: Number(p.costeBase) || 0,
     plazo: Number(p.plazo) || 1,
+    consumoAnual2025: Number(p.consumoAnual2025) || 0,
     preciosMensuales: Array.isArray(p.preciosMensuales) && p.preciosMensuales.length === 12
       ? p.preciosMensuales.map(v => Number(v) || 0)
       : new Array(12).fill(Number(p.costeBase) || 0)
@@ -120,6 +121,7 @@ function renderTodoDesdeNube() {
   refrescarSelectorPedidos();
   renderPedidos();
   refrescarDashboard();
+  if (typeof renderPresupuestoEstimado === "function") renderPresupuestoEstimado();
 }
 
 async function cargarDatosDesdeNube() {
@@ -203,6 +205,7 @@ function cargarProductosGuardados() {
             consumo: Number(p.consumo) || 0,
             costeBase: Number(p.costeBase) || 0,
             plazo: Number(p.plazo) || 1,
+    consumoAnual2025: Number(p.consumoAnual2025) || 0,
             preciosMensuales: Array.isArray(p.preciosMensuales) && p.preciosMensuales.length === 12
             ? p.preciosMensuales.map(v => Number(v) || 0)
                 : new Array(12).fill(Number(p.costeBase) || 0)
@@ -1364,3 +1367,64 @@ if (typeof firebase !== 'undefined') {
     }
   });
 }
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PRESUPUESTO ESTIMADO SEGUN CONSUMO REAL
+// Calcula un presupuesto anual aproximado por producto = consumo anual estimado
+// x precio unitario medio de los pedidos reales (o costeBase si no hay pedidos).
+// El consumo anual se puede rellenar poco a poco (p.ej. con datos del año pasado).
+// ═══════════════════════════════════════════════════════════════════════════
+function precioMedioReal(prod) {
+  // Precio unitario medio ponderado a partir de los pedidos reales del producto.
+  if (typeof pedidos === "undefined" || !Array.isArray(pedidos)) return Number(prod.costeBase) || 0;
+  const suyos = pedidos.filter(pe => pe.productoId === prod.id || pe.producto === prod.producto);
+  let unidades = 0, importe = 0;
+  suyos.forEach(pe => {
+    const c = Number(pe.cantidad) || 0;
+    const p = Number(pe.precioUnitario) || 0;
+    unidades += c; importe += c * p;
+  });
+  if (unidades > 0) return importe / unidades;
+  return Number(prod.costeBase) || 0;
+}
+
+function renderPresupuestoEstimado() {
+  const body = document.getElementById("presupuestoEstimadoBody");
+  if (!body) return;
+  body.innerHTML = "";
+  let totalAnual = 0;
+  let algunDato = false;
+  productos.forEach(prod => {
+    const consumo = Number(prod.consumoAnual2025) || 0;
+    const precio = precioMedioReal(prod);
+    const estimado = consumo * precio;
+    if (consumo > 0) { algunDato = true; totalAnual += estimado; }
+    const tr = document.createElement("tr");
+    tr.dataset.id = prod.id;
+    const fuentePrecio = (typeof pedidos !== "undefined" && pedidos.some(pe => pe.productoId === prod.id || pe.producto === prod.producto))
+      ? "media pedidos" : "coste base";
+    tr.innerHTML = `
+      <td>${escaparHTML(prod.producto) || 'Producto sin nombre'}</td>
+      <td><input type="number" class="pe-consumo-input" min="0" step="1" value="${consumo || ''}" placeholder="0" style="width:110px;"></td>
+      <td>${precio.toLocaleString("es-ES", {minimumFractionDigits: 2, maximumFractionDigits: 4})} &euro; <span style="color:#888;font-size:11px;">(${fuentePrecio})</span></td>
+      <td class="pe-estimado" style="font-weight:600;">${consumo > 0 ? formatNumber(estimado) + ' \u20ac' : '\u2014'}</td>
+    `;
+    const input = tr.querySelector(".pe-consumo-input");
+    input.addEventListener("input", function () {
+      const val = Math.max(0, parseInt(input.value) || 0);
+      prod.consumoAnual2025 = val;
+      if (typeof guardarProductos === "function") guardarProductos();
+      renderPresupuestoEstimado();
+    });
+    body.appendChild(tr);
+  });
+  const totalEl = document.getElementById("presupuestoEstimadoTotal");
+  if (totalEl) {
+    totalEl.textContent = algunDato ? (formatNumber(totalAnual) + " \u20ac") : "Sin datos todavia";
+  }
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  renderPresupuestoEstimado();
+});
