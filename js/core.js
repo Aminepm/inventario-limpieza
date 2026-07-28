@@ -10,6 +10,7 @@ const reporteBody = document.getElementById("reporteBody");
 
 const STORAGE_KEY = "inventarioLimpiezaDatos";
 const PEDIDOS_KEY = "inventarioLimpiezaPedidos";
+const REPORTES_SEMANALES_KEY = "inventarioLimpiezaReportesSemanales";
 
 
 // ─── Sincronizacion en la nube (Firebase) ──────────────────────────────────
@@ -1169,6 +1170,23 @@ function numeroSemanaISO(fecha) {
   return Math.ceil((((d - inicioAnio) / 86400000) + 1) / 7);
 }
 
+// Guarda (o reemplaza, si ya existia) el reporte de una semana en el
+// historico local, para poder listar todas las semanas registradas
+// aunque no haya conexion con Google Sheets.
+function guardarReporteSemanalLocal(payload) {
+  let historico = [];
+  try {
+    const raw = localStorage.getItem(REPORTES_SEMANALES_KEY);
+    historico = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(historico)) historico = [];
+  } catch (e) { historico = []; }
+
+  historico = historico.filter(r => !(r.anio === payload.anio && r.semana === payload.semana));
+  historico.push(payload);
+  historico.sort((a, b) => (a.anio - b.anio) || (a.semana - b.semana));
+  localStorage.setItem(REPORTES_SEMANALES_KEY, JSON.stringify(historico));
+}
+
 async function enviarReporteSemanal() {
   if (!reporteBody) { mostrarNotificacion('No se encontró la tabla de reporte.', 'error'); return; }
 
@@ -1221,7 +1239,9 @@ async function enviarReporteSemanal() {
         estado.textContent = `Guardado correctamente (${data.filas} productos)`;
         estado.style.color = '#1a5c2e';
       }
-      // Envío confirmado: ahora sí descontamos el stock de cada producto.
+      // Envío confirmado: ahora sí descontamos el stock de cada producto
+      // y guardamos la semana en el historico local.
+      guardarReporteSemanalLocal(payload);
       filas.forEach(f => {
         f.prod.stock = Math.max(0, (Number(f.prod.stock) || 0) - f.unidades);
         f.input.value = '0';
