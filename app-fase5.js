@@ -145,7 +145,43 @@
               });
       }
 
-      doc.save("informe-limpieza-" + new Date().toISOString().slice(0, 10) + ".pdf");
+      if (y > doc.internal.pageSize.getHeight() - 120) { doc.addPage(); y = 50; } else { y += 24; }
+          var anioPDF = new Date().getFullYear();
+          var pedidosPDF = leer(KEY_PEDIDOS);
+          var gastoMes = new Array(12).fill(0);
+          pedidosPDF.forEach(function (pe) {
+                   var partes = String(pe.fecha || "").split("-");
+                   var anio = parseInt(partes[0], 10);
+                   var mes = parseInt(partes[1], 10) - 1;
+                   if (anio === anioPDF && mes >= 0 && mes < 12) {
+                              gastoMes[mes] += (Number(pe.cantidad) || 0) * (Number(pe.precioUnitario) || 0);
+                   }
+          });
+          var totalAnioPDF = gastoMes.reduce(function (a, b) { return a + b; }, 0);
+          doc.setFontSize(12);
+          doc.setTextColor(17, 24, 39);
+          doc.text("Historico mensual del ano " + anioPDF, 40, y);
+          y += 18;
+          doc.setFontSize(9);
+          doc.setTextColor(255, 255, 255);
+          doc.setFillColor(48, 164, 108);
+          doc.rect(40, y - 10, W - 80, 16, "F");
+          doc.text("Mes", 46, y);
+          doc.text("Gasto real", 300, y);
+          y += 14;
+          doc.setTextColor(40, 40, 40);
+          for (var mi = 0; mi < 12; mi++) {
+                   if (y > doc.internal.pageSize.getHeight() - 50) { doc.addPage(); y = 50; }
+                   doc.text(MESES[mi], 46, y);
+                   doc.text(eur(gastoMes[mi]), 300, y);
+                   y += 14;
+          }
+          doc.setFontSize(10);
+          doc.setTextColor(17, 24, 39);
+          doc.text("Total ano " + anioPDF + ": " + eur(totalAnioPDF), 46, y + 4);
+          y += 24;
+
+          doc.save("informe-limpieza-" + new Date().toISOString().slice(0, 10) + ".pdf");
    }
 
    function montarBoton() {
