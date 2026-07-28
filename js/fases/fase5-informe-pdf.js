@@ -8,6 +8,7 @@
 
    var KEY_PRODUCTOS = "inventarioLimpiezaDatos";
     var KEY_PEDIDOS = "inventarioLimpiezaPedidos";
+    var KEY_REPORTES = "inventarioLimpiezaReportesSemanales";
 
    function leer(key) {
          try {
@@ -54,18 +55,29 @@
          return total;
    }
 
-   function salidasSemanaActual() {
-         var body = document.getElementById("reporteBody");
-         var filas = [];
-         if (!body) return filas;
-         Array.prototype.forEach.call(body.querySelectorAll("tr"), function (tr) {
-                 var celdas = tr.querySelectorAll("td");
-                 var nombre = celdas[0] ? celdas[0].textContent.trim() : "";
-                 var input = tr.querySelector(".rep-unidades-input");
-                 var unidades = input ? (parseInt(input.value, 10) || 0) : 0;
-                 if (nombre) filas.push({ producto: nombre, unidades: unidades });
-         });
-         return filas;
+   function leerHistoricoSemanal() {
+         var historico = leer(KEY_REPORTES);
+         historico.sort(function (a, b) { return (a.anio - b.anio) || (a.semana - b.semana); });
+         return historico;
+   }
+
+   // Lunes y domingo de una semana ISO 8601 (mismo criterio que numeroSemanaISO en js/core.js).
+   function fechasSemanaISO(anio, semana) {
+         var jan4 = new Date(Date.UTC(anio, 0, 4));
+         var diaJan4 = jan4.getUTCDay() || 7; // lunes=1 ... domingo=7
+         var lunesSemana1 = new Date(jan4);
+         lunesSemana1.setUTCDate(jan4.getUTCDate() - diaJan4 + 1);
+         var lunes = new Date(lunesSemana1);
+         lunes.setUTCDate(lunesSemana1.getUTCDate() + (semana - 1) * 7);
+         var domingo = new Date(lunes);
+         domingo.setUTCDate(lunes.getUTCDate() + 6);
+         return { lunes: lunes, domingo: domingo };
+   }
+
+   function fmtFechaCorta(d) {
+         var dd = String(d.getUTCDate()).padStart(2, "0");
+         var mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+         return dd + "/" + mm;
    }
 
    function getJsPDF() {
@@ -158,44 +170,65 @@
       }
 
       if (y > doc.internal.pageSize.getHeight() - 120) { doc.addPage(); y = 50; } else { y += 24; }
-          var repFecha = (document.getElementById("rep-fecha") || {}).value || "";
-          var repSemana = (document.getElementById("rep-semana") || {}).value || "";
-          var repAnio = (document.getElementById("rep-anio") || {}).value || "";
-          var salidas = salidasSemanaActual();
-          var totalUnidadesSemana = salidas.reduce(function (a, f) { return a + f.unidades; }, 0);
-
           doc.setFontSize(12);
           doc.setTextColor(17, 24, 39);
-          doc.text("Salidas de producto - semana " + (repSemana || "?") + (repAnio ? "/" + repAnio : ""), 40, y);
-          y += 16;
-          if (repFecha) {
-                   doc.setFontSize(9);
-                   doc.setTextColor(110, 110, 110);
-                   doc.text("Fecha del reporte: " + repFecha, 40, y);
-                   y += 14;
-          }
-          y += 2;
-          doc.setFontSize(9);
-          doc.setTextColor(255, 255, 255);
-          doc.setFillColor(48, 164, 108);
-          doc.rect(40, y - 10, W - 80, 16, "F");
-          doc.text("Producto", 46, y);
-          doc.text("Unidades salidas", 380, y);
-          y += 14;
-          doc.setTextColor(40, 40, 40);
-          if (!salidas.length) {
-                   doc.text("Todavia no hay datos en el reporte semanal.", 46, y);
-                   y += 14;
-          } else {
-                   salidas.forEach(function (f) {
-                            if (y > doc.internal.pageSize.getHeight() - 50) { doc.addPage(); y = 50; }
-                            doc.text(String(f.producto).slice(0, 40), 46, y);
-                            doc.text(String(f.unidades), 380, y);
-                            y += 14;
-                   });
+          doc.text("Historico de salidas por semana", 40, y);
+          y += 18;
+
+          var historico = leerHistoricoSemanal();
+          var totalGeneral = 0;
+
+          if (!historico.length) {
                    doc.setFontSize(10);
+                   doc.setTextColor(60, 60, 60);
+                   doc.text("Todavia no se ha guardado ningun reporte semanal.", 40, y);
+                   y += 24;
+          } else {
+                   historico.forEach(function (semanaRep) {
+                            var reportes = Array.isArray(semanaRep.reportes) ? semanaRep.reportes : [];
+                            var totalSemana = reportes.reduce(function (a, r) { return a + (Number(r.salidasSemana) || 0); }, 0);
+                            totalGeneral += totalSemana;
+
+                            if (y > doc.internal.pageSize.getHeight() - 80) { doc.addPage(); y = 50; }
+
+                            var rango = fechasSemanaISO(semanaRep.anio, semanaRep.semana);
+                            doc.setFontSize(11);
+                            doc.setTextColor(17, 24, 39);
+                            doc.text("Semana " + semanaRep.semana + " (" + semanaRep.anio + ") · lunes " +
+                                       fmtFechaCorta(rango.lunes) + " a domingo " + fmtFechaCorta(rango.domingo), 40, y);
+                            y += 16;
+
+                            doc.setFontSize(9);
+                            doc.setTextColor(255, 255, 255);
+                            doc.setFillColor(48, 164, 108);
+                            doc.rect(40, y - 10, W - 80, 16, "F");
+                            doc.text("Producto", 46, y);
+                            doc.text("Unidades salidas", 380, y);
+                            y += 14;
+                            doc.setTextColor(40, 40, 40);
+
+                            if (!reportes.length) {
+                                       doc.text("Sin productos registrados esta semana.", 46, y);
+                                       y += 14;
+                            } else {
+                                       reportes.forEach(function (r) {
+                                                  if (y > doc.internal.pageSize.getHeight() - 50) { doc.addPage(); y = 50; }
+                                                  doc.text(String(r.producto || "").slice(0, 40), 46, y);
+                                                  doc.text(String(Number(r.salidasSemana) || 0), 380, y);
+                                                  y += 14;
+                                       });
+                            }
+
+                            doc.setFontSize(9);
+                            doc.setTextColor(17, 24, 39);
+                            doc.text("Total semana: " + totalSemana, 46, y + 2);
+                            y += 22;
+                   });
+
+                   if (y > doc.internal.pageSize.getHeight() - 50) { doc.addPage(); y = 50; }
+                   doc.setFontSize(11);
                    doc.setTextColor(17, 24, 39);
-                   doc.text("Total unidades salidas esta semana: " + totalUnidadesSemana, 46, y + 4);
+                   doc.text("Total historico (todas las semanas): " + totalGeneral, 40, y);
                    y += 24;
           }
 
