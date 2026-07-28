@@ -1100,6 +1100,9 @@ let nubeIniciadaTrasLogin = false;
 
 // ===== REPORTE SEMANAL =====
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx-RFB7T2ZnDsKzYjdE4g4in2YeNCfG6tOTAKGL7RFMSHs58JQZE72EcNd2Iy6iwamy3A/exec';
+// Se expone en window para que js/fases/fase5-informe-pdf.js pueda leer el
+// historico real desde Google Sheets sin duplicar la URL.
+window.APPS_SCRIPT_URL = APPS_SCRIPT_URL;
 
 function crearFilaReporte(prod) {
   if (!reporteBody) return;

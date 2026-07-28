@@ -9,6 +9,7 @@
    var KEY_PRODUCTOS = "inventarioLimpiezaDatos";
     var KEY_PEDIDOS = "inventarioLimpiezaPedidos";
     var KEY_REPORTES = "inventarioLimpiezaReportesSemanales";
+    var APPS_SCRIPT_URL_FALLBACK = "https://script.google.com/macros/s/AKfycbx-RFB7T2ZnDsKzYjdE4g4in2YeNCfG6tOTAKGL7RFMSHs58JQZE72EcNd2Iy6iwamy3A/exec";
 
    function leer(key) {
          try {
@@ -61,6 +62,41 @@
          return historico;
    }
 
+   // Agrupa las filas planas que devuelve el Apps Script (una fila por
+   // producto+semana) en el mismo formato { anio, semana, reportes } que usa
+   // el resto del PDF. Descarta filas sin salidas (por si la hoja tiene
+   // alguna fila con 0 metida a mano).
+   function agruparPorSemana(filas) {
+         var mapa = {};
+         (filas || []).forEach(function (r) {
+                 var anio = Number(r.anio) || 0;
+                 var semana = Number(r.semana) || 0;
+                 var salidas = Number(r.salidasSemana) || 0;
+                 if (salidas <= 0) return;
+                 var clave = anio + "-" + semana;
+                 if (!mapa[clave]) mapa[clave] = { anio: anio, semana: semana, reportes: [] };
+                 mapa[clave].reportes.push({ producto: r.producto, salidasSemana: salidas });
+         });
+         var lista = Object.keys(mapa).map(function (k) { return mapa[k]; });
+         lista.sort(function (a, b) { return (a.anio - b.anio) || (a.semana - b.semana); });
+         return lista;
+   }
+
+   // Lee el historico real desde Google Sheets (fuente de verdad: todas las
+   // semanas enviadas desde cualquier dispositivo). Si falla la conexion,
+   // quien llama debe caer de vuelta al historico local con leerHistoricoSemanal().
+   function obtenerHistoricoRemoto() {
+         var base = window.APPS_SCRIPT_URL || APPS_SCRIPT_URL_FALLBACK;
+         return fetch(base + "?action=historico").then(function (res) {
+                 return res.json();
+         }).then(function (data) {
+                 if (!data || data.resultado !== "ok" || !Array.isArray(data.reportes)) {
+                           throw new Error("Respuesta inesperada del Apps Script");
+                 }
+                 return agruparPorSemana(data.reportes);
+         });
+   }
+
    // Lunes y domingo de una semana ISO 8601 (mismo criterio que numeroSemanaISO en js/core.js).
    function fechasSemanaISO(anio, semana) {
          var jan4 = new Date(Date.UTC(anio, 0, 4));
@@ -86,12 +122,25 @@
          return null;
    }
 
-   function generarPDF() {
+   async function generarPDF() {
          var JsPDF = getJsPDF();
          if (!JsPDF) {
                  alert("No se pudo cargar la libreria PDF. Revisa tu conexion e intenta de nuevo.");
                  return;
          }
+
+         var boton = document.getElementById("exportarPdf");
+         var textoOriginal = boton ? boton.textContent : "";
+         if (boton) { boton.disabled = true; boton.textContent = "Generando..."; }
+
+         var historico;
+         try {
+                 historico = await obtenerHistoricoRemoto();
+         } catch (err) {
+                 console.warn("[fase5-informe-pdf] No se pudo leer el historico de Google Sheets, uso el local:", err);
+                 historico = leerHistoricoSemanal();
+         }
+
          var doc = new JsPDF({ unit: "pt", format: "a4" });
          var W = doc.internal.pageSize.getWidth();
          var y = 48;
@@ -175,7 +224,6 @@
           doc.text("Historico de salidas por semana", 40, y);
           y += 18;
 
-          var historico = leerHistoricoSemanal();
           var totalGeneral = 0;
 
           if (!historico.length) {
@@ -233,6 +281,8 @@
           }
 
           doc.save("informe-limpieza-" + new Date().toISOString().slice(0, 10) + ".pdf");
+
+          if (boton) { boton.disabled = false; boton.textContent = textoOriginal; }
    }
 
    function montarBoton() {
