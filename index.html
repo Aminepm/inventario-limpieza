@@ -275,16 +275,22 @@
 </main>
 </div>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-    <script src="app.js?v=2"></script>
-        <script src="app-mejoras.js?v=2"></script>
-    <script src="app-fase2.js?v=1"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="app-fase4.js?v=1"></script>
-    <script src="app-fase5.js?v=1"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-    <script src="alertas-email.js?v=1"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+
+<!-- Nucleo: render de tablas, pedidos, login y sincronizacion con Firebase -->
+<script src="js/core.js?v=3"></script>
+
+<!-- Fases: cada una anade funcionalidad sobre el nucleo, en orden -->
+<script src="js/fases/fase1-alertas-reposicion.js?v=2"></script>
+<script src="js/fases/fase2-comparativa-gasto.js?v=1"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="js/fases/fase4-usabilidad-datos.js?v=1"></script>
+<script src="js/fases/fase5-informe-pdf.js?v=2"></script>
+
+<!-- Complementos: no son una fase numerada, se apoyan en las anteriores -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="js/complementos/alertas-email.js?v=1"></script>
 </div>
 </body>
 </html>

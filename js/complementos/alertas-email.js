@@ -1,6 +1,6 @@
 /* =====================================================================
    alertas-email.js  ·  Aviso por correo al detectar escasez de producto
-   Se carga DESPUES de app-mejoras.js. Usa la misma logica de alerta.
+   Se carga DESPUES de fase1-alertas-reposicion.js. Usa la misma logica.
    Envia un email (via EmailJS) SOLO la primera vez que un producto entra
    en alerta (rojo/ambar). No reenvia mientras siga en escasez; si el
    producto sale de alerta y vuelve a escasear, se avisa de nuevo.

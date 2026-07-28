@@ -1,9 +1,9 @@
 /* =====================================================================
-   app-fase2.js  ·  Fases 2, 3 y 6
+   fase2-comparativa-gasto.js  ·  Fases 2, 3 y 6
    Fase 2: Coherencia real vs previsto (mes de mayor gasto + etiquetas KPI)
    Fase 3: Comparativa acumulada real vs presupuesto (% desviacion)
    Fase 6: Responsive movil/tablet + nota de ultima actualizacion
-   Se carga DESPUES de app.js. Solo anade; no modifica funciones internas.
+   Se carga DESPUES de js/core.js. Solo anade; no modifica funciones internas.
    ===================================================================== */
 (function () {
     "use strict";

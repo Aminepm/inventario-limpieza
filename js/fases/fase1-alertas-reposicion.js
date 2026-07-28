@@ -1,6 +1,6 @@
 /* =====================================================================
-   app-mejoras.js  ·  Fase 1: Alertas y semaforo de reposicion
-   Se carga DESPUES de app.js. No modifica funciones internas: las
+   fase1-alertas-reposicion.js  ·  Fase 1: Alertas y semaforo de reposicion
+   Se carga DESPUES de js/core.js. No modifica funciones internas: las
    "envuelve" para anadir logica de alertas por encima.
    ===================================================================== */
 (function () {

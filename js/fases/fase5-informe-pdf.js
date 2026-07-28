@@ -1,5 +1,5 @@
 /* =====================================================================
-   app-fase5.js  ·  Fase 5: Exportar informe PDF de gerencia
+   fase5-informe-pdf.js  ·  Fase 5: Exportar informe PDF de gerencia
    Sustituye el boton "Exportar CSV" por "Exportar PDF".
    Requiere jsPDF (se carga en index.html antes de este script).
    ===================================================================== */
@@ -8,8 +8,6 @@
 
    var KEY_PRODUCTOS = "inventarioLimpiezaDatos";
     var KEY_PEDIDOS = "inventarioLimpiezaPedidos";
-    var MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-                     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
    function leer(key) {
          try {
@@ -54,6 +52,20 @@
                  total += (Number(p.cantidad) || 0) * (Number(p.precioUnitario) || 0);
          });
          return total;
+   }
+
+   function salidasSemanaActual() {
+         var body = document.getElementById("reporteBody");
+         var filas = [];
+         if (!body) return filas;
+         Array.prototype.forEach.call(body.querySelectorAll("tr"), function (tr) {
+                 var celdas = tr.querySelectorAll("td");
+                 var nombre = celdas[0] ? celdas[0].textContent.trim() : "";
+                 var input = tr.querySelector(".rep-unidades-input");
+                 var unidades = input ? (parseInt(input.value, 10) || 0) : 0;
+                 if (nombre) filas.push({ producto: nombre, unidades: unidades });
+         });
+         return filas;
    }
 
    function getJsPDF() {
@@ -146,40 +158,46 @@
       }
 
       if (y > doc.internal.pageSize.getHeight() - 120) { doc.addPage(); y = 50; } else { y += 24; }
-          var anioPDF = new Date().getFullYear();
-          var pedidosPDF = leer(KEY_PEDIDOS);
-          var gastoMes = new Array(12).fill(0);
-          pedidosPDF.forEach(function (pe) {
-                   var partes = String(pe.fecha || "").split("-");
-                   var anio = parseInt(partes[0], 10);
-                   var mes = parseInt(partes[1], 10) - 1;
-                   if (anio === anioPDF && mes >= 0 && mes < 12) {
-                              gastoMes[mes] += (Number(pe.cantidad) || 0) * (Number(pe.precioUnitario) || 0);
-                   }
-          });
-          var totalAnioPDF = gastoMes.reduce(function (a, b) { return a + b; }, 0);
+          var repFecha = (document.getElementById("rep-fecha") || {}).value || "";
+          var repSemana = (document.getElementById("rep-semana") || {}).value || "";
+          var repAnio = (document.getElementById("rep-anio") || {}).value || "";
+          var salidas = salidasSemanaActual();
+          var totalUnidadesSemana = salidas.reduce(function (a, f) { return a + f.unidades; }, 0);
+
           doc.setFontSize(12);
           doc.setTextColor(17, 24, 39);
-          doc.text("Historico mensual del ano " + anioPDF, 40, y);
-          y += 18;
+          doc.text("Salidas de producto - semana " + (repSemana || "?") + (repAnio ? "/" + repAnio : ""), 40, y);
+          y += 16;
+          if (repFecha) {
+                   doc.setFontSize(9);
+                   doc.setTextColor(110, 110, 110);
+                   doc.text("Fecha del reporte: " + repFecha, 40, y);
+                   y += 14;
+          }
+          y += 2;
           doc.setFontSize(9);
           doc.setTextColor(255, 255, 255);
           doc.setFillColor(48, 164, 108);
           doc.rect(40, y - 10, W - 80, 16, "F");
-          doc.text("Mes", 46, y);
-          doc.text("Gasto real", 300, y);
+          doc.text("Producto", 46, y);
+          doc.text("Unidades salidas", 380, y);
           y += 14;
           doc.setTextColor(40, 40, 40);
-          for (var mi = 0; mi < 12; mi++) {
-                   if (y > doc.internal.pageSize.getHeight() - 50) { doc.addPage(); y = 50; }
-                   doc.text(MESES[mi], 46, y);
-                   doc.text(eur(gastoMes[mi]), 300, y);
+          if (!salidas.length) {
+                   doc.text("Todavia no hay datos en el reporte semanal.", 46, y);
                    y += 14;
+          } else {
+                   salidas.forEach(function (f) {
+                            if (y > doc.internal.pageSize.getHeight() - 50) { doc.addPage(); y = 50; }
+                            doc.text(String(f.producto).slice(0, 40), 46, y);
+                            doc.text(String(f.unidades), 380, y);
+                            y += 14;
+                   });
+                   doc.setFontSize(10);
+                   doc.setTextColor(17, 24, 39);
+                   doc.text("Total unidades salidas esta semana: " + totalUnidadesSemana, 46, y + 4);
+                   y += 24;
           }
-          doc.setFontSize(10);
-          doc.setTextColor(17, 24, 39);
-          doc.text("Total ano " + anioPDF + ": " + eur(totalAnioPDF), 46, y + 4);
-          y += 24;
 
           doc.save("informe-limpieza-" + new Date().toISOString().slice(0, 10) + ".pdf");
    }
