@@ -1,5 +1,5 @@
 /* =====================================================================
-   app-fase4.js  ·  Fase 4: Usabilidad y calidad de datos
+   fase4-usabilidad-datos.js  ·  Fase 4: Usabilidad y calidad de datos
    - Buscador/filtro del inventario
    - Validaciones en el formulario de pedidos
    - Deshacer borrado de pedidos (toast de undo)
