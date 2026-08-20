@@ -96,6 +96,7 @@ function normalizarProductosNube(datos) {
     plazo: Number(p.plazo) || 1,
     consumoAnual2025: Number(p.consumoAnual2025) || 0,
     prioridadManual: ["alta", "normal", "baja"].includes(p.prioridadManual) ? p.prioridadManual : "normal",
+    incluidoRecomendacion: p.incluidoRecomendacion !== false,
     preciosMensuales: Array.isArray(p.preciosMensuales) && p.preciosMensuales.length === 12
       ? p.preciosMensuales.map(v => Number(v) || 0)
       : new Array(12).fill(Number(p.costeBase) || 0)
@@ -210,6 +211,7 @@ function cargarProductosGuardados() {
             plazo: Number(p.plazo) || 1,
     consumoAnual2025: Number(p.consumoAnual2025) || 0,
     prioridadManual: ["alta", "normal", "baja"].includes(p.prioridadManual) ? p.prioridadManual : "normal",
+    incluidoRecomendacion: p.incluidoRecomendacion !== false,
             preciosMensuales: Array.isArray(p.preciosMensuales) && p.preciosMensuales.length === 12
             ? p.preciosMensuales.map(v => Number(v) || 0)
                 : new Array(12).fill(Number(p.costeBase) || 0)
@@ -1460,10 +1462,12 @@ function renderPresupuestoEstimado() {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // RECOMENDACION DE PRESUPUESTO POR PERIODO
-// A partir de un presupuesto disponible y un rango de meses (p.ej. "de ahora
-// a fin de año"), reparte ese dinero entre los productos priorizando los que
-// tienen mas riesgo de quedarse sin stock (mismo criterio que la columna
-// "Estado" del inventario).
+// A partir de un presupuesto disponible y un rango de mes+año (p.ej. "de
+// ahora a enero de 2027"), reparte ese dinero entre los productos marcados
+// para cubrir (se pueden quitar y poner con la casilla "Incluir"),
+// priorizando los que tienen mas riesgo de quedarse sin stock (mismo
+// criterio que la columna "Estado" del inventario), y calcula cuantas
+// unidades corresponden al importe asignado.
 // ═══════════════════════════════════════════════════════════════════════════
 const RECOMENDACION_PRESUPUESTO_KEY = "inventarioLimpiezaRecomendacionPresupuesto";
 
@@ -1484,56 +1488,80 @@ function guardarRecomendacionPresupuestoInput(datos) {
   }
 }
 
-function necesidadPeriodoProducto(prod, mesDesde, mesHasta) {
+// Numero de meses entre (anioDesde, mesDesde) y (anioHasta, mesHasta), ambos incluidos.
+function mesesEnPeriodo(anioDesde, mesDesde, anioHasta, mesHasta) {
+  const total = (anioHasta * 12 + mesHasta) - (anioDesde * 12 + mesDesde) + 1;
+  return Math.max(0, total);
+}
+
+// Los precios de cada producto solo se guardan para 12 meses "tipo" (Enero..Diciembre),
+// asi que un periodo que cruza de año (p.ej. Nov 2026 a Feb 2027) repite ese ciclo anual.
+function necesidadPeriodoProducto(prod, anioDesde, mesDesde, anioHasta, mesHasta) {
+  const numMeses = mesesEnPeriodo(anioDesde, mesDesde, anioHasta, mesHasta);
   let necesidad = 0;
-  for (let i = mesDesde; i <= mesHasta; i++) {
-    necesidad += (Number(prod.consumo) || 0) * (prod.preciosMensuales[i] || prod.costeBase || 0);
+  let unidades = 0;
+  for (let k = 0; k < numMeses; k++) {
+    const mesIdx = (mesDesde + k) % 12;
+    const consumoMes = Number(prod.consumo) || 0;
+    necesidad += consumoMes * (prod.preciosMensuales[mesIdx] || prod.costeBase || 0);
+    unidades += consumoMes;
   }
-  return necesidad;
+  return { necesidad, unidades, numMeses };
 }
 
 const ORDEN_PREFERENCIA_MANUAL = { alta: 2, normal: 1, baja: 0 };
 
-function calcularRecomendacionPresupuesto(presupuesto, mesDesde, mesHasta) {
+function calcularRecomendacionPresupuesto(presupuesto, anioDesde, mesDesde, anioHasta, mesHasta) {
   const lista = productos.map(prod => {
-    const necesidad = necesidadPeriodoProducto(prod, mesDesde, mesHasta);
+    const { necesidad, unidades } = necesidadPeriodoProducto(prod, anioDesde, mesDesde, anioHasta, mesHasta);
     const status = statusData(prod.stock, prod.minimo, prod.consumo);
     const preferencia = ["alta", "normal", "baja"].includes(prod.prioridadManual) ? prod.prioridadManual : "normal";
-    return { prod, necesidad, status, preferencia };
+    const incluido = prod.incluidoRecomendacion !== false;
+    return { prod, necesidad, unidades, status, preferencia, incluido };
   });
+
+  const incluidos = lista.filter(item => item.incluido);
+  const excluidos = lista.filter(item => !item.incluido);
+
   // 1º tu preferencia manual (alta > normal > baja); a igual preferencia, mas
   // urgente primero (estado critico/bajo/correcto); a igual estado, mayor necesidad primero.
-  lista.sort((a, b) =>
+  incluidos.sort((a, b) =>
     (ORDEN_PREFERENCIA_MANUAL[b.preferencia] - ORDEN_PREFERENCIA_MANUAL[a.preferencia]) ||
     (b.status.level - a.status.level) ||
     (b.necesidad - a.necesidad)
   );
 
   let restante = Math.max(0, Number(presupuesto) || 0);
-  const resultado = lista.map(item => {
+  const resultado = incluidos.map(item => {
     const asignado = Math.min(item.necesidad, restante);
     restante -= asignado;
     const cobertura = item.necesidad > 0 ? (asignado / item.necesidad) * 100 : 100;
-    return { prod: item.prod, status: item.status, necesidad: item.necesidad, asignado, cobertura, preferencia: item.preferencia };
+    // Precio medio del periodo para saber cuantas unidades compra el importe asignado.
+    const precioMedio = item.unidades > 0 ? item.necesidad / item.unidades : 0;
+    const unidadesCubiertas = precioMedio > 0 ? asignado / precioMedio : 0;
+    return Object.assign({}, item, { asignado, cobertura, unidadesCubiertas });
   });
-  const necesidadTotal = lista.reduce((total, item) => total + item.necesidad, 0);
-  return { resultado, necesidadTotal, sobrante: restante };
+  const necesidadTotal = incluidos.reduce((total, item) => total + item.necesidad, 0);
+  return { resultado, excluidos, necesidadTotal, sobrante: restante };
 }
 
 function renderRecomendacionPresupuesto() {
   const body = document.getElementById("recomendacionPresupuestoBody");
   const resumen = document.getElementById("rpResumen");
   const inputPresupuesto = document.getElementById("rp-presupuesto");
-  const selDesde = document.getElementById("rp-mes-desde");
-  const selHasta = document.getElementById("rp-mes-hasta");
-  if (!body || !resumen || !inputPresupuesto || !selDesde || !selHasta) return;
+  const selMesDesde = document.getElementById("rp-mes-desde");
+  const selAnioDesde = document.getElementById("rp-anio-desde");
+  const selMesHasta = document.getElementById("rp-mes-hasta");
+  const selAnioHasta = document.getElementById("rp-anio-hasta");
+  if (!body || !resumen || !inputPresupuesto || !selMesDesde || !selAnioDesde || !selMesHasta || !selAnioHasta) return;
 
   const presupuesto = Math.max(0, parseFloat(inputPresupuesto.value) || 0);
-  let mesDesde = Number(selDesde.value);
-  let mesHasta = Number(selHasta.value);
-  if (mesHasta < mesDesde) { mesHasta = mesDesde; selHasta.value = String(mesHasta); }
+  const mesDesde = Number(selMesDesde.value);
+  const anioDesde = Number(selAnioDesde.value);
+  const mesHasta = Number(selMesHasta.value);
+  const anioHasta = Number(selAnioHasta.value);
 
-  guardarRecomendacionPresupuestoInput({ presupuesto, mesDesde, mesHasta });
+  guardarRecomendacionPresupuestoInput({ presupuesto, anioDesde, mesDesde, anioHasta, mesHasta });
 
   if (!productos.length) {
     body.innerHTML = "";
@@ -1541,8 +1569,15 @@ function renderRecomendacionPresupuesto() {
     return;
   }
 
-  const { resultado, necesidadTotal, sobrante } = calcularRecomendacionPresupuesto(presupuesto, mesDesde, mesHasta);
-  const numMeses = mesHasta - mesDesde + 1;
+  const numMeses = mesesEnPeriodo(anioDesde, mesDesde, anioHasta, mesHasta);
+  if (numMeses <= 0) {
+    body.innerHTML = "";
+    resumen.textContent = "El mes/año \"Hasta\" debe ser igual o posterior al \"Desde\".";
+    return;
+  }
+
+  const { resultado, excluidos, necesidadTotal, sobrante } =
+    calcularRecomendacionPresupuesto(presupuesto, anioDesde, mesDesde, anioHasta, mesHasta);
 
   body.innerHTML = "";
   const OPCIONES_PREFERENCIA = [
@@ -1550,22 +1585,37 @@ function renderRecomendacionPresupuesto() {
     { valor: "normal", texto: "Normal — automática" },
     { valor: "baja", texto: "Baja — dejar para el final" }
   ];
-  resultado.forEach(item => {
-    const coberturaTexto = item.necesidad > 0 ? `${Math.round(item.cobertura)}%` : "—";
+
+  function pintarFila(item, incluido) {
     const tr = document.createElement("tr");
+    if (!incluido) tr.style.opacity = "0.55";
+    const coberturaTexto = incluido ? (item.necesidad > 0 ? `${Math.round(item.cobertura)}%` : "—") : "Excluido";
+    const necesidadTexto = item.necesidad > 0
+      ? `${formatCurrency(item.necesidad)}<br><span style="font-size:11px;color:#888;">${formatNumber(item.unidades)} uds.</span>`
+      : "—";
+    const asignadoTexto = incluido && item.asignado > 0
+      ? `${formatCurrency(item.asignado)}<br><span style="font-size:11px;color:#888;">~${formatNumber(item.unidadesCubiertas)} uds.</span>`
+      : "—";
     tr.innerHTML = `
+      <td style="text-align:center;"><input type="checkbox" class="rp-incluir-check" ${incluido ? "checked" : ""}></td>
       <td><span class="status-chip ${item.status.cls}">${item.status.text}</span></td>
       <td>${escaparHTML(item.prod.producto) || "Producto sin nombre"}</td>
       <td>${escaparHTML(item.prod.categoria) || "—"}</td>
       <td>
-        <select class="rp-preferencia-select">
+        <select class="rp-preferencia-select" ${incluido ? "" : "disabled"}>
           ${OPCIONES_PREFERENCIA.map(op => `<option value="${op.valor}" ${op.valor === item.preferencia ? "selected" : ""}>${op.texto}</option>`).join("")}
         </select>
       </td>
-      <td>${item.necesidad > 0 ? formatCurrency(item.necesidad) : "—"}</td>
-      <td style="font-weight:600;">${item.asignado > 0 ? formatCurrency(item.asignado) : "—"}</td>
+      <td>${necesidadTexto}</td>
+      <td style="font-weight:600;">${asignadoTexto}</td>
       <td>${coberturaTexto}</td>
     `;
+    const checkbox = tr.querySelector(".rp-incluir-check");
+    checkbox.addEventListener("change", function () {
+      item.prod.incluidoRecomendacion = checkbox.checked;
+      if (typeof guardarProductos === "function") guardarProductos();
+      renderRecomendacionPresupuesto();
+    });
     const select = tr.querySelector(".rp-preferencia-select");
     select.addEventListener("change", function () {
       item.prod.prioridadManual = select.value;
@@ -1573,38 +1623,58 @@ function renderRecomendacionPresupuesto() {
       renderRecomendacionPresupuesto();
     });
     body.appendChild(tr);
-  });
+  }
+
+  resultado.forEach(item => pintarFila(item, true));
+  excluidos.forEach(item => pintarFila(item, false));
 
   const porcentajeCubierto = necesidadTotal > 0 ? Math.min(100, (presupuesto / necesidadTotal) * 100) : 100;
-  const mesesTexto = numMeses === 1 ? meses[mesDesde] : `${meses[mesDesde]} a ${meses[mesHasta]} (${numMeses} meses)`;
+  const mesesTexto = numMeses <= 1
+    ? `${meses[mesDesde]} ${anioDesde}`
+    : `${meses[mesDesde]} ${anioDesde} a ${meses[mesHasta]} ${anioHasta} (${numMeses} meses)`;
+  const nota = excluidos.length > 0
+    ? ` (${excluidos.length} producto${excluidos.length === 1 ? "" : "s"} excluido${excluidos.length === 1 ? "" : "s"} del reparto)`
+    : "";
 
   if (presupuesto <= 0) {
-    resumen.innerHTML = `Necesidad estimada para <strong>${mesesTexto}</strong>: <strong>${formatCurrency(necesidadTotal)}</strong>. Introduce el presupuesto disponible para ver como repartirlo entre los productos.`;
+    resumen.innerHTML = `Necesidad estimada para <strong>${mesesTexto}</strong>: <strong>${formatCurrency(necesidadTotal)}</strong>${nota}. Introduce el presupuesto disponible para ver como repartirlo entre los productos.`;
   } else if (presupuesto >= necesidadTotal) {
-    resumen.innerHTML = `Con <strong>${formatCurrency(presupuesto)}</strong> cubres el 100% de la necesidad estimada para <strong>${mesesTexto}</strong> (${formatCurrency(necesidadTotal)}). Te sobrarían <strong>${formatCurrency(sobrante)}</strong>.`;
+    resumen.innerHTML = `Con <strong>${formatCurrency(presupuesto)}</strong> cubres el 100% de la necesidad estimada para <strong>${mesesTexto}</strong> (${formatCurrency(necesidadTotal)})${nota}. Te sobrarían <strong>${formatCurrency(sobrante)}</strong>.`;
   } else {
-    resumen.innerHTML = `Con <strong>${formatCurrency(presupuesto)}</strong> cubres el <strong>${Math.round(porcentajeCubierto)}%</strong> de la necesidad estimada para <strong>${mesesTexto}</strong> (${formatCurrency(necesidadTotal)}). Se ha priorizado a los productos con mayor riesgo de rotura de stock.`;
+    resumen.innerHTML = `Con <strong>${formatCurrency(presupuesto)}</strong> cubres el <strong>${Math.round(porcentajeCubierto)}%</strong> de la necesidad estimada para <strong>${mesesTexto}</strong> (${formatCurrency(necesidadTotal)})${nota}. Se ha priorizado a los productos con mayor riesgo de rotura de stock.`;
   }
 }
 
 function inicializarRecomendacionPresupuesto() {
-  const selDesde = document.getElementById("rp-mes-desde");
-  const selHasta = document.getElementById("rp-mes-hasta");
+  const selMesDesde = document.getElementById("rp-mes-desde");
+  const selAnioDesde = document.getElementById("rp-anio-desde");
+  const selMesHasta = document.getElementById("rp-mes-hasta");
+  const selAnioHasta = document.getElementById("rp-anio-hasta");
   const inputPresupuesto = document.getElementById("rp-presupuesto");
-  if (!selDesde || !selHasta || !inputPresupuesto) return;
+  if (!selMesDesde || !selAnioDesde || !selMesHasta || !selAnioHasta || !inputPresupuesto) return;
 
-  selDesde.innerHTML = meses.map((m, i) => `<option value="${i}">${m}</option>`).join("");
-  selHasta.innerHTML = meses.map((m, i) => `<option value="${i}">${m}</option>`).join("");
+  selMesDesde.innerHTML = meses.map((m, i) => `<option value="${i}">${m}</option>`).join("");
+  selMesHasta.innerHTML = meses.map((m, i) => `<option value="${i}">${m}</option>`).join("");
+  let opcionesAnio = "";
+  for (let a = yearMin; a <= yearMax; a++) opcionesAnio += `<option value="${a}">${a}</option>`;
+  selAnioDesde.innerHTML = opcionesAnio;
+  selAnioHasta.innerHTML = opcionesAnio;
 
   const guardado = cargarRecomendacionPresupuestoGuardada();
-  const mesActual = new Date().getMonth();
+  const hoy = new Date();
+  const mesActual = hoy.getMonth();
+  const anioActual = hoy.getFullYear();
+
   inputPresupuesto.value = guardado && guardado.presupuesto ? guardado.presupuesto : "";
-  selDesde.value = String(guardado && guardado.mesDesde != null ? guardado.mesDesde : mesActual);
-  selHasta.value = String(guardado && guardado.mesHasta != null ? guardado.mesHasta : 11);
+  selMesDesde.value = String(guardado && guardado.mesDesde != null ? guardado.mesDesde : mesActual);
+  selAnioDesde.value = String(guardado && guardado.anioDesde != null ? guardado.anioDesde : anioActual);
+  selMesHasta.value = String(guardado && guardado.mesHasta != null ? guardado.mesHasta : 11);
+  selAnioHasta.value = String(guardado && guardado.anioHasta != null ? guardado.anioHasta : anioActual);
 
   inputPresupuesto.addEventListener("input", renderRecomendacionPresupuesto);
-  selDesde.addEventListener("change", renderRecomendacionPresupuesto);
-  selHasta.addEventListener("change", renderRecomendacionPresupuesto);
+  [selMesDesde, selAnioDesde, selMesHasta, selAnioHasta].forEach(sel => {
+    sel.addEventListener("change", renderRecomendacionPresupuesto);
+  });
 
   renderRecomendacionPresupuesto();
 }
