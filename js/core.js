@@ -123,6 +123,7 @@ function renderTodoDesdeNube() {
   renderPedidos();
   refrescarDashboard();
   if (typeof renderPresupuestoEstimado === "function") renderPresupuestoEstimado();
+  if (typeof renderRecomendacionPresupuesto === "function") renderRecomendacionPresupuesto();
 }
 
 async function cargarDatosDesdeNube() {
@@ -1455,6 +1456,134 @@ function renderPresupuestoEstimado() {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// RECOMENDACION DE PRESUPUESTO POR PERIODO
+// A partir de un presupuesto disponible y un rango de meses (p.ej. "de ahora
+// a fin de año"), reparte ese dinero entre los productos priorizando los que
+// tienen mas riesgo de quedarse sin stock (mismo criterio que la columna
+// "Estado" del inventario).
+// ═══════════════════════════════════════════════════════════════════════════
+const RECOMENDACION_PRESUPUESTO_KEY = "inventarioLimpiezaRecomendacionPresupuesto";
+
+function cargarRecomendacionPresupuestoGuardada() {
+  try {
+    const raw = localStorage.getItem(RECOMENDACION_PRESUPUESTO_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function guardarRecomendacionPresupuestoInput(datos) {
+  try {
+    localStorage.setItem(RECOMENDACION_PRESUPUESTO_KEY, JSON.stringify(datos));
+  } catch (err) {
+    console.error("No se pudo guardar la configuracion de recomendacion de presupuesto:", err);
+  }
+}
+
+function necesidadPeriodoProducto(prod, mesDesde, mesHasta) {
+  let necesidad = 0;
+  for (let i = mesDesde; i <= mesHasta; i++) {
+    necesidad += (Number(prod.consumo) || 0) * (prod.preciosMensuales[i] || prod.costeBase || 0);
+  }
+  return necesidad;
+}
+
+function calcularRecomendacionPresupuesto(presupuesto, mesDesde, mesHasta) {
+  const lista = productos.map(prod => {
+    const necesidad = necesidadPeriodoProducto(prod, mesDesde, mesHasta);
+    const status = statusData(prod.stock, prod.minimo, prod.consumo);
+    return { prod, necesidad, status };
+  });
+  // Mas urgente primero (estado critico/bajo/correcto); a igual estado, mayor necesidad primero.
+  lista.sort((a, b) => (b.status.level - a.status.level) || (b.necesidad - a.necesidad));
+
+  let restante = Math.max(0, Number(presupuesto) || 0);
+  const resultado = lista.map(item => {
+    const asignado = Math.min(item.necesidad, restante);
+    restante -= asignado;
+    const cobertura = item.necesidad > 0 ? (asignado / item.necesidad) * 100 : 100;
+    return { prod: item.prod, status: item.status, necesidad: item.necesidad, asignado, cobertura };
+  });
+  const necesidadTotal = lista.reduce((total, item) => total + item.necesidad, 0);
+  return { resultado, necesidadTotal, sobrante: restante };
+}
+
+function renderRecomendacionPresupuesto() {
+  const body = document.getElementById("recomendacionPresupuestoBody");
+  const resumen = document.getElementById("rpResumen");
+  const inputPresupuesto = document.getElementById("rp-presupuesto");
+  const selDesde = document.getElementById("rp-mes-desde");
+  const selHasta = document.getElementById("rp-mes-hasta");
+  if (!body || !resumen || !inputPresupuesto || !selDesde || !selHasta) return;
+
+  const presupuesto = Math.max(0, parseFloat(inputPresupuesto.value) || 0);
+  let mesDesde = Number(selDesde.value);
+  let mesHasta = Number(selHasta.value);
+  if (mesHasta < mesDesde) { mesHasta = mesDesde; selHasta.value = String(mesHasta); }
+
+  guardarRecomendacionPresupuestoInput({ presupuesto, mesDesde, mesHasta });
+
+  if (!productos.length) {
+    body.innerHTML = "";
+    resumen.textContent = "Añade productos al inventario para poder calcular una recomendación.";
+    return;
+  }
+
+  const { resultado, necesidadTotal, sobrante } = calcularRecomendacionPresupuesto(presupuesto, mesDesde, mesHasta);
+  const numMeses = mesHasta - mesDesde + 1;
+
+  body.innerHTML = "";
+  resultado.forEach(item => {
+    const coberturaTexto = item.necesidad > 0 ? `${Math.round(item.cobertura)}%` : "—";
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><span class="status-chip ${item.status.cls}">${item.status.text}</span></td>
+      <td>${escaparHTML(item.prod.producto) || "Producto sin nombre"}</td>
+      <td>${escaparHTML(item.prod.categoria) || "—"}</td>
+      <td>${item.necesidad > 0 ? formatCurrency(item.necesidad) : "—"}</td>
+      <td style="font-weight:600;">${item.asignado > 0 ? formatCurrency(item.asignado) : "—"}</td>
+      <td>${coberturaTexto}</td>
+    `;
+    body.appendChild(tr);
+  });
+
+  const porcentajeCubierto = necesidadTotal > 0 ? Math.min(100, (presupuesto / necesidadTotal) * 100) : 100;
+  const mesesTexto = numMeses === 1 ? meses[mesDesde] : `${meses[mesDesde]} a ${meses[mesHasta]} (${numMeses} meses)`;
+
+  if (presupuesto <= 0) {
+    resumen.innerHTML = `Necesidad estimada para <strong>${mesesTexto}</strong>: <strong>${formatCurrency(necesidadTotal)}</strong>. Introduce el presupuesto disponible para ver como repartirlo entre los productos.`;
+  } else if (presupuesto >= necesidadTotal) {
+    resumen.innerHTML = `Con <strong>${formatCurrency(presupuesto)}</strong> cubres el 100% de la necesidad estimada para <strong>${mesesTexto}</strong> (${formatCurrency(necesidadTotal)}). Te sobrarían <strong>${formatCurrency(sobrante)}</strong>.`;
+  } else {
+    resumen.innerHTML = `Con <strong>${formatCurrency(presupuesto)}</strong> cubres el <strong>${Math.round(porcentajeCubierto)}%</strong> de la necesidad estimada para <strong>${mesesTexto}</strong> (${formatCurrency(necesidadTotal)}). Se ha priorizado a los productos con mayor riesgo de rotura de stock.`;
+  }
+}
+
+function inicializarRecomendacionPresupuesto() {
+  const selDesde = document.getElementById("rp-mes-desde");
+  const selHasta = document.getElementById("rp-mes-hasta");
+  const inputPresupuesto = document.getElementById("rp-presupuesto");
+  if (!selDesde || !selHasta || !inputPresupuesto) return;
+
+  selDesde.innerHTML = meses.map((m, i) => `<option value="${i}">${m}</option>`).join("");
+  selHasta.innerHTML = meses.map((m, i) => `<option value="${i}">${m}</option>`).join("");
+
+  const guardado = cargarRecomendacionPresupuestoGuardada();
+  const mesActual = new Date().getMonth();
+  inputPresupuesto.value = guardado && guardado.presupuesto ? guardado.presupuesto : "";
+  selDesde.value = String(guardado && guardado.mesDesde != null ? guardado.mesDesde : mesActual);
+  selHasta.value = String(guardado && guardado.mesHasta != null ? guardado.mesHasta : 11);
+
+  inputPresupuesto.addEventListener("input", renderRecomendacionPresupuesto);
+  selDesde.addEventListener("change", renderRecomendacionPresupuesto);
+  selHasta.addEventListener("change", renderRecomendacionPresupuesto);
+
+  renderRecomendacionPresupuesto();
+}
+
 document.addEventListener("DOMContentLoaded", function () {
+  inicializarRecomendacionPresupuesto();
   renderPresupuestoEstimado();
 });

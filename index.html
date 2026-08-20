@@ -52,6 +52,7 @@
 <a href="#gasto">Gasto mensual</a>
 <a href="#pedidos">Pedidos</a>
 <a href="#presupuesto-estimado">Presupuesto estimado</a>
+<a href="#recomendacion-presupuesto">Recomendación presupuesto</a>
 <a href="#reporte">Reporte semanal</a>
 </nav>
 <div class="sidebar-card">
@@ -237,6 +238,41 @@
 </div>
 <div style="font-weight:700; font-size:1.1rem;">Presupuesto anual estimado total: <span id="presupuestoEstimadoTotal">Sin datos todavia</span></div>
 </section>
+
+<section class="panel" id="recomendacion-presupuesto" style="margin-top:24px;">
+<div class="panel-header">
+<div>
+<h4>Recomendación según presupuesto</h4>
+<p>Indica el dinero disponible y el periodo que quieres cubrir (por ejemplo, de este mes a fin de año) y la app reparte el presupuesto entre productos, priorizando los que tienen más riesgo de quedarse sin stock.</p>
+</div>
+<div class="fields-row" style="display:flex; gap: var(--space-3); flex-wrap:wrap;">
+<div class="field" style="margin-bottom:0;">
+<label for="rp-presupuesto">Presupuesto disponible (€)</label>
+<input type="number" id="rp-presupuesto" min="0" step="0.01" placeholder="0,00" style="width:160px;">
+</div>
+<div class="field" style="margin-bottom:0;">
+<label for="rp-mes-desde">Desde</label>
+<select id="rp-mes-desde"></select>
+</div>
+<div class="field" style="margin-bottom:0;">
+<label for="rp-mes-hasta">Hasta</label>
+<select id="rp-mes-hasta"></select>
+</div>
+</div>
+</div>
+<div class="panel-body">
+<div class="forecast-result" id="rpResumen">Introduce un presupuesto para ver la recomendación.</div>
+<div class="table-wrap" style="margin-top:16px;">
+<table>
+<thead>
+<tr><th>Prioridad</th><th>Producto</th><th>Categoría</th><th>Necesidad del periodo</th><th>Presupuesto recomendado</th><th>Cobertura conseguida</th></tr>
+</thead>
+<tbody id="recomendacionPresupuestoBody"></tbody>
+</table>
+</div>
+</div>
+</section>
+
 <section class="panel" id="reporte" style="margin-top:40px;">
 <div class="panel-header">
 <div>
@@ -279,7 +315,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
 <!-- Nucleo: render de tablas, pedidos, login y sincronizacion con Firebase -->
-<script src="js/core.js?v=3"></script>
+<script src="js/core.js?v=4"></script>
 
 <!-- Fases: cada una anade funcionalidad sobre el nucleo, en orden -->
 <script src="js/fases/fase1-alertas-reposicion.js?v=2"></script>
