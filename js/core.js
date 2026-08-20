@@ -95,6 +95,7 @@ function normalizarProductosNube(datos) {
     costeBase: Number(p.costeBase) || 0,
     plazo: Number(p.plazo) || 1,
     consumoAnual2025: Number(p.consumoAnual2025) || 0,
+    prioridadManual: ["alta", "normal", "baja"].includes(p.prioridadManual) ? p.prioridadManual : "normal",
     preciosMensuales: Array.isArray(p.preciosMensuales) && p.preciosMensuales.length === 12
       ? p.preciosMensuales.map(v => Number(v) || 0)
       : new Array(12).fill(Number(p.costeBase) || 0)
@@ -208,6 +209,7 @@ function cargarProductosGuardados() {
             costeBase: Number(p.costeBase) || 0,
             plazo: Number(p.plazo) || 1,
     consumoAnual2025: Number(p.consumoAnual2025) || 0,
+    prioridadManual: ["alta", "normal", "baja"].includes(p.prioridadManual) ? p.prioridadManual : "normal",
             preciosMensuales: Array.isArray(p.preciosMensuales) && p.preciosMensuales.length === 12
             ? p.preciosMensuales.map(v => Number(v) || 0)
                 : new Array(12).fill(Number(p.costeBase) || 0)
@@ -1490,21 +1492,29 @@ function necesidadPeriodoProducto(prod, mesDesde, mesHasta) {
   return necesidad;
 }
 
+const ORDEN_PREFERENCIA_MANUAL = { alta: 2, normal: 1, baja: 0 };
+
 function calcularRecomendacionPresupuesto(presupuesto, mesDesde, mesHasta) {
   const lista = productos.map(prod => {
     const necesidad = necesidadPeriodoProducto(prod, mesDesde, mesHasta);
     const status = statusData(prod.stock, prod.minimo, prod.consumo);
-    return { prod, necesidad, status };
+    const preferencia = ["alta", "normal", "baja"].includes(prod.prioridadManual) ? prod.prioridadManual : "normal";
+    return { prod, necesidad, status, preferencia };
   });
-  // Mas urgente primero (estado critico/bajo/correcto); a igual estado, mayor necesidad primero.
-  lista.sort((a, b) => (b.status.level - a.status.level) || (b.necesidad - a.necesidad));
+  // 1º tu preferencia manual (alta > normal > baja); a igual preferencia, mas
+  // urgente primero (estado critico/bajo/correcto); a igual estado, mayor necesidad primero.
+  lista.sort((a, b) =>
+    (ORDEN_PREFERENCIA_MANUAL[b.preferencia] - ORDEN_PREFERENCIA_MANUAL[a.preferencia]) ||
+    (b.status.level - a.status.level) ||
+    (b.necesidad - a.necesidad)
+  );
 
   let restante = Math.max(0, Number(presupuesto) || 0);
   const resultado = lista.map(item => {
     const asignado = Math.min(item.necesidad, restante);
     restante -= asignado;
     const cobertura = item.necesidad > 0 ? (asignado / item.necesidad) * 100 : 100;
-    return { prod: item.prod, status: item.status, necesidad: item.necesidad, asignado, cobertura };
+    return { prod: item.prod, status: item.status, necesidad: item.necesidad, asignado, cobertura, preferencia: item.preferencia };
   });
   const necesidadTotal = lista.reduce((total, item) => total + item.necesidad, 0);
   return { resultado, necesidadTotal, sobrante: restante };
@@ -1535,6 +1545,11 @@ function renderRecomendacionPresupuesto() {
   const numMeses = mesHasta - mesDesde + 1;
 
   body.innerHTML = "";
+  const OPCIONES_PREFERENCIA = [
+    { valor: "alta", texto: "Alta — priorizar" },
+    { valor: "normal", texto: "Normal — automática" },
+    { valor: "baja", texto: "Baja — dejar para el final" }
+  ];
   resultado.forEach(item => {
     const coberturaTexto = item.necesidad > 0 ? `${Math.round(item.cobertura)}%` : "—";
     const tr = document.createElement("tr");
@@ -1542,10 +1557,21 @@ function renderRecomendacionPresupuesto() {
       <td><span class="status-chip ${item.status.cls}">${item.status.text}</span></td>
       <td>${escaparHTML(item.prod.producto) || "Producto sin nombre"}</td>
       <td>${escaparHTML(item.prod.categoria) || "—"}</td>
+      <td>
+        <select class="rp-preferencia-select">
+          ${OPCIONES_PREFERENCIA.map(op => `<option value="${op.valor}" ${op.valor === item.preferencia ? "selected" : ""}>${op.texto}</option>`).join("")}
+        </select>
+      </td>
       <td>${item.necesidad > 0 ? formatCurrency(item.necesidad) : "—"}</td>
       <td style="font-weight:600;">${item.asignado > 0 ? formatCurrency(item.asignado) : "—"}</td>
       <td>${coberturaTexto}</td>
     `;
+    const select = tr.querySelector(".rp-preferencia-select");
+    select.addEventListener("change", function () {
+      item.prod.prioridadManual = select.value;
+      if (typeof guardarProductos === "function") guardarProductos();
+      renderRecomendacionPresupuesto();
+    });
     body.appendChild(tr);
   });
 

@@ -243,7 +243,7 @@
 <div class="panel-header">
 <div>
 <h4>Recomendación según presupuesto</h4>
-<p>Indica el dinero disponible y el periodo que quieres cubrir (por ejemplo, de este mes a fin de año) y la app reparte el presupuesto entre productos, priorizando los que tienen más riesgo de quedarse sin stock.</p>
+<p>Indica el dinero disponible y el periodo que quieres cubrir (por ejemplo, de este mes a fin de año). La app reparte el presupuesto priorizando primero los productos con más riesgo de quedarse sin stock; en la columna "Preferencia" puedes marcar tus propios productos favoritos como Alta o Baja para que se cubran antes o después que el resto.</p>
 </div>
 <div class="fields-row" style="display:flex; gap: var(--space-3); flex-wrap:wrap;">
 <div class="field" style="margin-bottom:0;">
@@ -265,7 +265,7 @@
 <div class="table-wrap" style="margin-top:16px;">
 <table>
 <thead>
-<tr><th>Prioridad</th><th>Producto</th><th>Categoría</th><th>Necesidad del periodo</th><th>Presupuesto recomendado</th><th>Cobertura conseguida</th></tr>
+<tr><th>Prioridad</th><th>Producto</th><th>Categoría</th><th>Preferencia</th><th>Necesidad del periodo</th><th>Presupuesto recomendado</th><th>Cobertura conseguida</th></tr>
 </thead>
 <tbody id="recomendacionPresupuestoBody"></tbody>
 </table>
@@ -315,7 +315,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
 <!-- Nucleo: render de tablas, pedidos, login y sincronizacion con Firebase -->
-<script src="js/core.js?v=4"></script>
+<script src="js/core.js?v=5"></script>
 
 <!-- Fases: cada una anade funcionalidad sobre el nucleo, en orden -->
 <script src="js/fases/fase1-alertas-reposicion.js?v=2"></script>
