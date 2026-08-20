@@ -72,6 +72,11 @@ a { color: inherit; }
 .panel-header h4 { font-family: var(--font-display); font-size: var(--text-lg); }
 .panel-header p { color: var(--color-text-muted); font-size: var(--text-sm); max-width: 55ch; }
 .panel-body { padding: var(--space-5); }
+.panel-toggle { display:flex; justify-content:flex-start; align-items:flex-start; gap: 0.6rem; cursor:pointer; user-select:none; }
+.panel-toggle:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; border-radius: var(--radius-sm); }
+.panel-caret { display:inline-block; font-size: 1rem; line-height:1.4; margin-top:0.15em; flex-shrink:0; transition: transform .15s ease; }
+.panel-toggle[aria-expanded="true"] .panel-caret { transform: rotate(90deg); }
+.panel-body.is-collapsed { display: none !important; }
 .table-wrap { overflow:auto; }
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align:left; padding: 0.9rem 0.75rem; border-bottom: 1px solid var(--color-divider); vertical-align: middle; }

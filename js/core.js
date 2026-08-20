@@ -1070,20 +1070,25 @@ function initExportCsv() {
     btn.addEventListener("click", exportarCSV);
 }
 
-// Hace que la sección de inventario se pueda plegar/desplegar al pulsar en su
-// cabecera. La flecha indica el estado (▾ desplegada, ▸ plegada).
-function initInventarioDesplegable() {
-    const cab = document.getElementById("inventarioToggle");
-    const caret = document.getElementById("inventarioCaret");
-    const seccion = document.getElementById("inventario");
-    if (!cab || !seccion) return;
-    const body = seccion.querySelector(".panel-body");
-    if (!body) return;
-    cab.addEventListener("click", function () {
-        const oculto = body.style.display === "none";
-        body.style.display = oculto ? "" : "none";
-        if (caret) caret.style.transform = oculto ? "rotate(90deg)" : "rotate(0deg)";
-        cab.setAttribute("aria-expanded", oculto ? "true" : "false");
+// Hace que TODOS los paneles se puedan plegar/desplegar al pulsar en su
+// cabecera (o con Enter/espacio). Arrancan siempre replegados (ver la clase
+// "is-collapsed" en el HTML de cada panel-body) y cada uno se abre solo al
+// pulsarlo; no afecta a los controles (selects, botones) que haya en la
+// misma cabecera fuera del bloque de titulo ".panel-toggle".
+function initPanelesDesplegables() {
+    document.querySelectorAll(".panel-toggle").forEach(function (toggle) {
+        const panel = toggle.closest(".panel");
+        const body = panel ? panel.querySelector(".panel-body") : null;
+        if (!body) return;
+        function alternar() {
+            const expandir = body.classList.contains("is-collapsed");
+            body.classList.toggle("is-collapsed", !expandir);
+            toggle.setAttribute("aria-expanded", expandir ? "true" : "false");
+        }
+        toggle.addEventListener("click", alternar);
+        toggle.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); alternar(); }
+        });
     });
 }
 
@@ -1095,7 +1100,7 @@ initTheme();
 initPeriodo();
 initAddRow();
 initExportCsv();
-initInventarioDesplegable();
+initPanelesDesplegables();
 initPedidos();
 renderPedidos();
 refrescarDashboard();
