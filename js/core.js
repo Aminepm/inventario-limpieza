@@ -1212,8 +1212,14 @@ async function enviarReporteSemanal() {
     const id = tr.dataset.id;
     const prod = productos.find(p => p.id === id);
     const input = tr.querySelector('.rep-unidades-input');
+    const existInput = tr.querySelector('.rep-existencias-input');
     const unidades = input ? Math.max(0, parseInt(input.value) || 0) : 0;
-    return { prod, unidades, input };
+    // Si has contado y escrito lo que queda fisicamente, esa es la cifra de
+    // verdad; si algun reporte anterior no llego a aplicarse bien (p.ej. por
+    // un fallo de conexion), este recuento corrige el stock de la app en vez
+    // de arrastrar el error semana tras semana.
+    const quedan = existInput && existInput.value !== '' ? Math.max(0, parseInt(existInput.value) || 0) : null;
+    return { prod, unidades, input, existInput, quedan };
   }).filter(f => f.prod && f.unidades > 0);
 
   if (filas.length === 0) { mostrarNotificacion('Indica las unidades gastadas de al menos un producto.', 'error'); return; }
@@ -1261,9 +1267,10 @@ async function enviarReporteSemanal() {
       // y guardamos la semana en el historico local.
       guardarReporteSemanalLocal(payload);
       filas.forEach(f => {
-        f.prod.stock = Math.max(0, (Number(f.prod.stock) || 0) - f.unidades);
+        f.prod.stock = f.quedan !== null ? f.quedan : Math.max(0, (Number(f.prod.stock) || 0) - f.unidades);
         f.input.value = '0';
         f.input.dataset.aplicado = '0';
+        if (f.existInput) f.existInput.value = '';
       });
       guardarProductos();
       refrescarDashboard();
