@@ -448,6 +448,7 @@ renderPriority();
   refrescarSelectorPedidos();
     if (typeof refrescarSelectorReporte === "function") refrescarSelectorReporte();
     actualizarNotaPeriodo();
+    actualizarStockEnTablaReporte();
 }
 
 // ─── Prioridad ───────────────────────────────────────────────────────────────
@@ -1070,20 +1071,25 @@ function initExportCsv() {
     btn.addEventListener("click", exportarCSV);
 }
 
-// Hace que la sección de inventario se pueda plegar/desplegar al pulsar en su
-// cabecera. La flecha indica el estado (▾ desplegada, ▸ plegada).
-function initInventarioDesplegable() {
-    const cab = document.getElementById("inventarioToggle");
-    const caret = document.getElementById("inventarioCaret");
-    const seccion = document.getElementById("inventario");
-    if (!cab || !seccion) return;
-    const body = seccion.querySelector(".panel-body");
-    if (!body) return;
-    cab.addEventListener("click", function () {
-        const oculto = body.style.display === "none";
-        body.style.display = oculto ? "" : "none";
-        if (caret) caret.style.transform = oculto ? "rotate(90deg)" : "rotate(0deg)";
-        cab.setAttribute("aria-expanded", oculto ? "true" : "false");
+// Hace que TODOS los paneles se puedan plegar/desplegar al pulsar en su
+// cabecera (o con Enter/espacio). Arrancan siempre replegados (ver la clase
+// "is-collapsed" en el HTML de cada panel-body) y cada uno se abre solo al
+// pulsarlo; no afecta a los controles (selects, botones) que haya en la
+// misma cabecera fuera del bloque de titulo ".panel-toggle".
+function initPanelesDesplegables() {
+    document.querySelectorAll(".panel-toggle").forEach(function (toggle) {
+        const panel = toggle.closest(".panel");
+        const body = panel ? panel.querySelector(".panel-body") : null;
+        if (!body) return;
+        function alternar() {
+            const expandir = body.classList.contains("is-collapsed");
+            body.classList.toggle("is-collapsed", !expandir);
+            toggle.setAttribute("aria-expanded", expandir ? "true" : "false");
+        }
+        toggle.addEventListener("click", alternar);
+        toggle.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); alternar(); }
+        });
     });
 }
 
@@ -1095,7 +1101,7 @@ initTheme();
 initPeriodo();
 initAddRow();
 initExportCsv();
-initInventarioDesplegable();
+initPanelesDesplegables();
 initPedidos();
 renderPedidos();
 refrescarDashboard();
@@ -1113,7 +1119,6 @@ function crearFilaReporte(prod) {
   if (!reporteBody) return;
   const tr = document.createElement("tr");
   tr.dataset.id = prod.id;
-  const stockActual = Number(prod.stock) || 0;
   tr.innerHTML = `
   <td>${escaparHTML(prod.producto) || 'Producto sin nombre'}</td>
   <td>${escaparHTML(prod.categoria)}</td>
@@ -1125,14 +1130,19 @@ function crearFilaReporte(prod) {
 
   // Columna "Existencias en stock": al escribir las unidades que quedan
   // fisicamente, calculamos automaticamente las gastadas = stock - existencias.
+  // Importante: leemos prod.stock EN EL MOMENTO de escribir (no al crear la
+  // fila), porque el stock puede haber cambiado mientras tanto (pedidos
+  // recibidos, ediciones manuales...); si no, se compara contra un stock
+  // "teorico" desactualizado y los numeros no cuadran con el fisico real.
   const existInput = tr.querySelector(".rep-existencias-input");
   const gastInput = tr.querySelector(".rep-unidades-input");
   if (existInput && gastInput) {
     existInput.addEventListener("input", function () {
       if (existInput.value === "") return; // vacio: no toca el campo de gastadas
+      const stockActual = Number(prod.stock) || 0;
       let quedan = parseInt(existInput.value) || 0;
       if (quedan < 0) quedan = 0;
-      if (quedan > stockActual) quedan = stockActual; // no puede quedar mas de lo que habia
+      if (quedan > stockActual) quedan = stockActual; // no puede quedar mas de lo que hay
       existInput.value = quedan;
       gastInput.value = Math.max(0, stockActual - quedan);
     });
