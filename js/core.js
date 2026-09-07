@@ -145,6 +145,7 @@ async function cargarDatosDesdeNube() {
       }
       renderTodoDesdeNube();
             aplicandoCambioRemoto = false;
+      if (typeof sincronizarStockDesdeSheets === "function") sincronizarStockDesdeSheets();
     } else {
       await guardarDatosEnNube();
     }
@@ -429,6 +430,13 @@ productos.forEach(prod => {
         tr.querySelector(".status-cell").innerHTML = `<span class="status-chip ${status.cls}">${status.text}</span>`;
         tr.querySelector(".forecast-units").textContent = formatNumber(annualUnits);
         tr.querySelector(".forecast-cost").textContent = formatCurrency(annualCost);
+        // El stock puede cambiar por vias que no pasan por este input (pedidos,
+        // sincronizacion con Google Sheets...); lo refrescamos aqui tambien,
+        // salvo que el usuario este escribiendo en el mismo campo ahora mismo.
+        const stockInput = tr.querySelector('input[data-field="stock"]');
+        if (stockInput && document.activeElement !== stockInput) {
+            stockInput.value = prod.stock;
+        }
     }
 });
 
@@ -1102,6 +1110,7 @@ initPeriodo();
 initAddRow();
 initExportCsv();
 initPanelesDesplegables();
+initSincronizacionStockAlAbrirReporte();
 initPedidos();
 renderPedidos();
 refrescarDashboard();
@@ -1285,7 +1294,91 @@ async function enviarReporteSemanal() {
       estado.textContent = 'Error de conexión';
       estado.style.color = '#c0392b';
     }
+  } finally {
+    // Google Sheets es la fuente de verdad: releemos el stock desde alli
+    // pase lo que pase con la confirmacion del envio (si la fila SI llego a
+    // guardarse en la hoja aunque la respuesta al navegador fallara, esto
+    // corrige el stock igualmente en vez de dejarlo desfasado).
+    sincronizarStockDesdeSheets();
   }
+}
+
+function normalizarNombreProducto(s) {
+  return (s || '').toString().trim().toLowerCase();
+}
+
+// Lee el historico de reportes semanales desde Google Sheets (fuente de
+// verdad) y actualiza el stock de cada producto con el ultimo "Stock Fisico"
+// registrado para el, en vez de fiarse solo de los calculos locales. Asi el
+// stock de la app se autocorrige automaticamente aunque algun envio anterior
+// no se hubiera confirmado bien en el navegador.
+async function sincronizarStockDesdeSheets() {
+  const estado = document.getElementById('rep-sync-estado');
+  try {
+    const res = await fetch(APPS_SCRIPT_URL + '?action=historico');
+    const data = await res.json();
+    if (!data || data.resultado !== 'ok' || !Array.isArray(data.reportes)) {
+      throw new Error('Respuesta inesperada del Apps Script');
+    }
+
+    // Orden cronologico para poder quedarnos con el ultimo dato de cada producto.
+    const filas = data.reportes.slice().sort((a, b) =>
+      ((Number(a.anio) || 0) - (Number(b.anio) || 0)) ||
+      ((Number(a.semana) || 0) - (Number(b.semana) || 0)) ||
+      String(a.fecha || '').localeCompare(String(b.fecha || ''))
+    );
+
+    const ultimoStockPorProducto = {};
+    filas.forEach(r => {
+      if (r.stockFisico === undefined || r.stockFisico === null || r.stockFisico === '') return;
+      const clave = normalizarNombreProducto(r.producto);
+      if (!clave) return;
+      ultimoStockPorProducto[clave] = Number(r.stockFisico) || 0;
+    });
+
+    let algunCambio = false;
+    productos.forEach(prod => {
+      const clave = normalizarNombreProducto(prod.producto);
+      if (!Object.prototype.hasOwnProperty.call(ultimoStockPorProducto, clave)) return;
+      const nuevoStock = ultimoStockPorProducto[clave];
+      if ((Number(prod.stock) || 0) !== nuevoStock) {
+        prod.stock = nuevoStock;
+        algunCambio = true;
+      }
+    });
+
+    if (algunCambio) refrescarDashboard();
+
+    if (estado) {
+      estado.textContent = 'Stock sincronizado con Google Sheets · ' + new Date().toLocaleTimeString('es-ES');
+      estado.style.color = '#1a5c2e';
+    }
+    return true;
+  } catch (err) {
+    console.warn('No se pudo sincronizar el stock con Google Sheets:', err);
+    if (estado) {
+      estado.textContent = 'No se pudo sincronizar el stock con Google Sheets (sin conexión).';
+      estado.style.color = '#c0392b';
+    }
+    return false;
+  }
+}
+
+// Sincroniza automaticamente el stock cada vez que se despliega el panel de
+// "Reporte semanal", para que siempre se vea el dato mas reciente al usarlo.
+function initSincronizacionStockAlAbrirReporte() {
+  const seccion = document.getElementById('reporte');
+  if (!seccion) return;
+  const toggle = seccion.querySelector('.panel-toggle');
+  const body = seccion.querySelector('.panel-body');
+  if (!toggle || !body) return;
+  function sincronizarSiSeAbre() {
+    if (!body.classList.contains('is-collapsed')) sincronizarStockDesdeSheets();
+  }
+  toggle.addEventListener('click', sincronizarSiSeAbre);
+  toggle.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') sincronizarSiSeAbre();
+  });
 }
 
 
