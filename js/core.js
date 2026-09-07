@@ -448,6 +448,7 @@ renderPriority();
   refrescarSelectorPedidos();
     if (typeof refrescarSelectorReporte === "function") refrescarSelectorReporte();
     actualizarNotaPeriodo();
+    actualizarStockEnTablaReporte();
 }
 
 // ─── Prioridad ───────────────────────────────────────────────────────────────
@@ -1118,7 +1119,6 @@ function crearFilaReporte(prod) {
   if (!reporteBody) return;
   const tr = document.createElement("tr");
   tr.dataset.id = prod.id;
-  const stockActual = Number(prod.stock) || 0;
   tr.innerHTML = `
   <td>${escaparHTML(prod.producto) || 'Producto sin nombre'}</td>
   <td>${escaparHTML(prod.categoria)}</td>
@@ -1130,14 +1130,19 @@ function crearFilaReporte(prod) {
 
   // Columna "Existencias en stock": al escribir las unidades que quedan
   // fisicamente, calculamos automaticamente las gastadas = stock - existencias.
+  // Importante: leemos prod.stock EN EL MOMENTO de escribir (no al crear la
+  // fila), porque el stock puede haber cambiado mientras tanto (pedidos
+  // recibidos, ediciones manuales...); si no, se compara contra un stock
+  // "teorico" desactualizado y los numeros no cuadran con el fisico real.
   const existInput = tr.querySelector(".rep-existencias-input");
   const gastInput = tr.querySelector(".rep-unidades-input");
   if (existInput && gastInput) {
     existInput.addEventListener("input", function () {
       if (existInput.value === "") return; // vacio: no toca el campo de gastadas
+      const stockActual = Number(prod.stock) || 0;
       let quedan = parseInt(existInput.value) || 0;
       if (quedan < 0) quedan = 0;
-      if (quedan > stockActual) quedan = stockActual; // no puede quedar mas de lo que habia
+      if (quedan > stockActual) quedan = stockActual; // no puede quedar mas de lo que hay
       existInput.value = quedan;
       gastInput.value = Math.max(0, stockActual - quedan);
     });
