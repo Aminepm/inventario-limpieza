@@ -1328,19 +1328,30 @@ async function sincronizarStockDesdeSheets() {
       String(a.fecha || '').localeCompare(String(b.fecha || ''))
     );
 
-    const ultimoStockPorProducto = {};
+    // Guardamos, por producto, el stock del ULTIMO reporte de Sheets junto con
+    // su fecha: Sheets solo sabe de reportes semanales, no de pedidos (compras
+    // que llegan al almacen). Si se ha registrado algun pedido DESPUES de esa
+    // fecha, hay que sumarlo encima del recuento fisico, o perderiamos esas
+    // unidades cada vez que se sincroniza.
+    const ultimoPorProducto = {};
     filas.forEach(r => {
       if (r.stockFisico === undefined || r.stockFisico === null || r.stockFisico === '') return;
       const clave = normalizarNombreProducto(r.producto);
       if (!clave) return;
-      ultimoStockPorProducto[clave] = Number(r.stockFisico) || 0;
+      ultimoPorProducto[clave] = { stock: Number(r.stockFisico) || 0, fecha: String(r.fecha || '') };
     });
 
     let algunCambio = false;
     productos.forEach(prod => {
       const clave = normalizarNombreProducto(prod.producto);
-      if (!Object.prototype.hasOwnProperty.call(ultimoStockPorProducto, clave)) return;
-      const nuevoStock = ultimoStockPorProducto[clave];
+      const ultimo = ultimoPorProducto[clave];
+      if (!ultimo) return;
+
+      const entradasPosteriores = (typeof pedidos !== 'undefined' ? pedidos : [])
+        .filter(pe => pe.productoId === prod.id && String(pe.fecha || '') > ultimo.fecha)
+        .reduce((total, pe) => total + (Number(pe.cantidad) || 0), 0);
+
+      const nuevoStock = ultimo.stock + entradasPosteriores;
       if ((Number(prod.stock) || 0) !== nuevoStock) {
         prod.stock = nuevoStock;
         algunCambio = true;
