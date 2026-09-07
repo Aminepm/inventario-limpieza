@@ -305,7 +305,8 @@
 <span class="panel-caret" data-panel-caret>❯</span>
 <div>
 <h4>Reporte semanal de stock</h4>
-<p>Cada lunes selecciona productos del inventario e introduce las unidades gastadas.</p>
+<p>Cada lunes selecciona productos del inventario e introduce las unidades gastadas. El stock se sincroniza automáticamente con el histórico de Google Sheets al abrir este panel.</p>
+<p id="rep-sync-estado" style="font-size:.8rem; color:#6b7280; margin-top:4px;"></p>
 </div>
 </div>
 <div class="panel-body is-collapsed">
@@ -343,7 +344,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
 <!-- Nucleo: render de tablas, pedidos, login y sincronizacion con Firebase -->
-<script src="js/core.js?v=7"></script>
+<script src="js/core.js?v=8"></script>
 
 <!-- Fases: cada una anade funcionalidad sobre el nucleo, en orden -->
 <script src="js/fases/fase1-alertas-reposicion.js?v=2"></script>
