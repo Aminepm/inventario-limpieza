@@ -97,6 +97,7 @@ function normalizarProductosNube(datos) {
     consumoAnual2025: Number(p.consumoAnual2025) || 0,
     prioridadManual: ["alta", "normal", "baja"].includes(p.prioridadManual) ? p.prioridadManual : "normal",
     incluidoRecomendacion: p.incluidoRecomendacion !== false,
+    ultimoReporteSheetsAplicado: Number(p.ultimoReporteSheetsAplicado) || 0,
     preciosMensuales: Array.isArray(p.preciosMensuales) && p.preciosMensuales.length === 12
       ? p.preciosMensuales.map(v => Number(v) || 0)
       : new Array(12).fill(Number(p.costeBase) || 0)
@@ -213,6 +214,7 @@ function cargarProductosGuardados() {
     consumoAnual2025: Number(p.consumoAnual2025) || 0,
     prioridadManual: ["alta", "normal", "baja"].includes(p.prioridadManual) ? p.prioridadManual : "normal",
     incluidoRecomendacion: p.incluidoRecomendacion !== false,
+    ultimoReporteSheetsAplicado: Number(p.ultimoReporteSheetsAplicado) || 0,
             preciosMensuales: Array.isArray(p.preciosMensuales) && p.preciosMensuales.length === 12
             ? p.preciosMensuales.map(v => Number(v) || 0)
                 : new Array(12).fill(Number(p.costeBase) || 0)
@@ -1275,8 +1277,14 @@ async function enviarReporteSemanal() {
       // Envío confirmado: ahora sí descontamos el stock de cada producto
       // y guardamos la semana en el historico local.
       guardarReporteSemanalLocal(payload);
+      const reporteKeyEnviado = (Number(payload.anio) || 0) * 100 + (Number(payload.semana) || 0);
       filas.forEach(f => {
         f.prod.stock = f.quedan !== null ? f.quedan : Math.max(0, (Number(f.prod.stock) || 0) - f.unidades);
+        // Este envio ya establece una nueva base: si luego la sincronizacion
+        // con Sheets ve este mismo reporte, no debe repetir el cambio.
+        if (reporteKeyEnviado > (Number(f.prod.ultimoReporteSheetsAplicado) || 0)) {
+          f.prod.ultimoReporteSheetsAplicado = reporteKeyEnviado;
+        }
         f.input.value = '0';
         f.input.dataset.aplicado = '0';
         if (f.existInput) f.existInput.value = '';
@@ -1334,17 +1342,23 @@ async function sincronizarStockDesdeSheets() {
       String(a.fecha || '').localeCompare(String(b.fecha || ''))
     );
 
-    // Guardamos, por producto, el stock del ULTIMO reporte de Sheets junto con
-    // su fecha: Sheets solo sabe de reportes semanales, no de pedidos (compras
-    // que llegan al almacen). Si se ha registrado algun pedido DESPUES de esa
-    // fecha, hay que sumarlo encima del recuento fisico, o perderiamos esas
-    // unidades cada vez que se sincroniza.
+    // Guardamos, por producto, el dato del ULTIMO reporte de Sheets junto con
+    // una "clave" que identifica ese reporte (año*100+semana). Cada producto
+    // recuerda que reporte fue el ULTIMO que se le aplico
+    // (prod.ultimoReporteSheetsAplicado). Mientras Sheets no tenga un reporte
+    // mas nuevo que ese, no tocamos el stock local en absoluto: cualquier
+    // pedido que se añada mientras tanto se queda tal cual, sin importar la
+    // fecha que se le ponga (los pedidos se registran a veces mas tarde con
+    // una fecha retroactiva, el dia real de la entrega).
     const filasConStock = filas.filter(r => r.stockFisico !== undefined && r.stockFisico !== null && r.stockFisico !== '');
     const ultimoPorProducto = {};
     filasConStock.forEach(r => {
       const clave = normalizarNombreProducto(r.producto);
       if (!clave) return;
-      ultimoPorProducto[clave] = { stock: Number(r.stockFisico) || 0, fecha: String(r.fecha || '') };
+      const reporteKey = (Number(r.anio) || 0) * 100 + (Number(r.semana) || 0);
+      const stockTeorico = (r.stockTeorico !== undefined && r.stockTeorico !== null && r.stockTeorico !== '')
+        ? Number(r.stockTeorico) : null;
+      ultimoPorProducto[clave] = { stockFisico: Number(r.stockFisico) || 0, stockTeorico, reporteKey };
     });
 
     let algunCambio = false;
@@ -1355,15 +1369,30 @@ async function sincronizarStockDesdeSheets() {
       if (!ultimo) return;
       algunProductoCoincidido = true;
 
-      const entradasPosteriores = (typeof pedidos !== 'undefined' ? pedidos : [])
-        .filter(pe => pe.productoId === prod.id && String(pe.fecha || '') > ultimo.fecha)
-        .reduce((total, pe) => total + (Number(pe.cantidad) || 0), 0);
+      const reporteYaAplicado = Number(prod.ultimoReporteSheetsAplicado) || 0;
+      if (ultimo.reporteKey <= reporteYaAplicado) return; // nada mas nuevo que aplicar: no tocar el stock local
 
-      const nuevoStock = ultimo.stock + entradasPosteriores;
-      if ((Number(prod.stock) || 0) !== nuevoStock) {
-        prod.stock = nuevoStock;
+      if (reporteYaAplicado === 0) {
+        // Primera vez que se sincroniza este producto: no tocamos el stock
+        // actual (puede tener pedidos u otros cambios locales que todavia no
+        // constan en ningun reporte). Solo marcamos desde que reporte hay
+        // que empezar a aplicar correcciones a partir de ahora.
+        prod.ultimoReporteSheetsAplicado = ultimo.reporteKey;
         algunCambio = true;
+        return;
       }
+
+      // Ya se habia sincronizado antes y llega un reporte MAS NUEVO: en vez
+      // de sobrescribir el stock entero (lo que borraria pedidos añadidos
+      // despues del ultimo reporte aplicado), sumamos la correccion que
+      // descubrio ese recuento fisico frente a lo que el propio reporte
+      // esperaba (fisico - teorico) sobre el stock actual.
+      const correccion = ultimo.stockTeorico !== null ? (ultimo.stockFisico - ultimo.stockTeorico) : null;
+      prod.stock = correccion !== null
+        ? Math.max(0, (Number(prod.stock) || 0) + correccion)
+        : ultimo.stockFisico; // sin stockTeorico no se puede calcular la correccion: usamos el valor absoluto
+      prod.ultimoReporteSheetsAplicado = ultimo.reporteKey;
+      algunCambio = true;
     });
 
     if (algunCambio) refrescarDashboard();
