@@ -112,7 +112,8 @@ function normalizarPedidosNube(datos) {
     producto: p.producto || "",
     categoria: p.categoria || "",
     cantidad: Number(p.cantidad) || 0,
-    precioUnitario: Number(p.precioUnitario) || 0
+    precioUnitario: Number(p.precioUnitario) || 0,
+    entradaReportada: !!p.entradaReportada
   }));
 }
 
@@ -248,7 +249,8 @@ function cargarPedidosGuardados() {
       producto: p.producto || "",
       categoria: p.categoria || "",
       cantidad: Number(p.cantidad) || 0,
-      precioUnitario: Number(p.precioUnitario) || 0
+      precioUnitario: Number(p.precioUnitario) || 0,
+      entradaReportada: !!p.entradaReportada
     }));
   } catch (err) {
     console.error("No se pudieron cargar los pedidos guardados:", err);
@@ -1230,8 +1232,13 @@ async function enviarReporteSemanal() {
     // un fallo de conexion), este recuento corrige el stock de la app en vez
     // de arrastrar el error semana tras semana.
     const quedan = existInput && existInput.value !== '' ? Math.max(0, parseInt(existInput.value) || 0) : null;
-    return { prod, unidades, input, existInput, quedan };
-  }).filter(f => f.prod && f.unidades > 0);
+    // Pedidos de este producto que ya subieron el stock local pero que
+    // todavia no se han reflejado como "Entradas Semana" en ningun reporte
+    // enviado a Sheets.
+    const pedidosPendientes = prod ? pedidos.filter(pe => pe.productoId === prod.id && !pe.entradaReportada) : [];
+    const entradas = pedidosPendientes.reduce((s, pe) => s + (Number(pe.cantidad) || 0), 0);
+    return { prod, unidades, input, existInput, quedan, entradas, pedidosPendientes };
+  }).filter(f => f.prod && (f.unidades > 0 || f.entradas > 0));
 
   if (filas.length === 0) { mostrarNotificacion('Indica las unidades gastadas de al menos un producto.', 'error'); return; }
 
@@ -1250,7 +1257,7 @@ async function enviarReporteSemanal() {
       proveedor: '',
       stockFisico: despues,   // stock que queda tras descontar lo gastado
       stockTeorico: antes,    // stock que había antes de descontar
-      entradasSemana: 0,
+      entradasSemana: f.entradas,
       salidasSemana: f.unidades,
       observaciones: ''
     };
@@ -1285,11 +1292,15 @@ async function enviarReporteSemanal() {
         if (reporteKeyEnviado > (Number(f.prod.ultimoReporteSheetsAplicado) || 0)) {
           f.prod.ultimoReporteSheetsAplicado = reporteKeyEnviado;
         }
+        // Estos pedidos ya quedaron reflejados como entrada en este reporte:
+        // no deben volver a contarse en el siguiente envio.
+        f.pedidosPendientes.forEach(pe => { pe.entradaReportada = true; });
         f.input.value = '0';
         f.input.dataset.aplicado = '0';
         if (f.existInput) f.existInput.value = '';
       });
       guardarProductos();
+      guardarPedidos();
       refrescarDashboard();
     } else {
       if (estado) {
