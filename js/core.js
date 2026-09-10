@@ -1318,8 +1318,14 @@ async function sincronizarStockDesdeSheets() {
     const res = await fetch(APPS_SCRIPT_URL + '?action=historico');
     const data = await res.json();
     if (!data || data.resultado !== 'ok' || !Array.isArray(data.reportes)) {
+      console.warn('[sincronizarStockDesdeSheets] Respuesta inesperada del Apps Script:', data);
       throw new Error('Respuesta inesperada del Apps Script');
     }
+
+    // Diagnostico: dejamos ver en la consola exactamente que trae cada fila,
+    // para poder detectar si el Apps Script cambia de nombre algun campo.
+    console.log('[sincronizarStockDesdeSheets] filas recibidas:', data.reportes.length,
+      data.reportes.length ? 'ejemplo de la primera fila: ' + JSON.stringify(data.reportes[0]) : '(historico vacio)');
 
     // Orden cronologico para poder quedarnos con el ultimo dato de cada producto.
     const filas = data.reportes.slice().sort((a, b) =>
@@ -1333,19 +1339,21 @@ async function sincronizarStockDesdeSheets() {
     // que llegan al almacen). Si se ha registrado algun pedido DESPUES de esa
     // fecha, hay que sumarlo encima del recuento fisico, o perderiamos esas
     // unidades cada vez que se sincroniza.
+    const filasConStock = filas.filter(r => r.stockFisico !== undefined && r.stockFisico !== null && r.stockFisico !== '');
     const ultimoPorProducto = {};
-    filas.forEach(r => {
-      if (r.stockFisico === undefined || r.stockFisico === null || r.stockFisico === '') return;
+    filasConStock.forEach(r => {
       const clave = normalizarNombreProducto(r.producto);
       if (!clave) return;
       ultimoPorProducto[clave] = { stock: Number(r.stockFisico) || 0, fecha: String(r.fecha || '') };
     });
 
     let algunCambio = false;
+    let algunProductoCoincidido = false;
     productos.forEach(prod => {
       const clave = normalizarNombreProducto(prod.producto);
       const ultimo = ultimoPorProducto[clave];
       if (!ultimo) return;
+      algunProductoCoincidido = true;
 
       const entradasPosteriores = (typeof pedidos !== 'undefined' ? pedidos : [])
         .filter(pe => pe.productoId === prod.id && String(pe.fecha || '') > ultimo.fecha)
@@ -1360,9 +1368,24 @@ async function sincronizarStockDesdeSheets() {
 
     if (algunCambio) refrescarDashboard();
 
+    // El fetch puede ir bien y aun asi no haber sincronizado nada de verdad;
+    // en vez de decir siempre "sincronizado", distinguimos por que no cambio nada.
     if (estado) {
-      estado.textContent = 'Stock sincronizado con Google Sheets · ' + new Date().toLocaleTimeString('es-ES');
-      estado.style.color = '#1a5c2e';
+      if (filas.length === 0) {
+        estado.textContent = 'Conectado a Google Sheets, pero todavía no hay ningún reporte semanal guardado.';
+        estado.style.color = '#a86016';
+      } else if (filasConStock.length === 0) {
+        estado.textContent = 'Conectado a Google Sheets, pero el histórico no trae el dato de stock físico (revisa la consola del navegador, F12).';
+        estado.style.color = '#a86016';
+        console.warn('[sincronizarStockDesdeSheets] Ninguna fila del histórico trae "stockFisico". Revisa que el Apps Script devuelva ese campo en accion=historico. Primera fila:', data.reportes[0]);
+      } else if (!algunProductoCoincidido) {
+        estado.textContent = 'Conectado a Google Sheets, pero ningún nombre del histórico coincide con los productos actuales del inventario.';
+        estado.style.color = '#a86016';
+        console.warn('[sincronizarStockDesdeSheets] Ningun producto local coincide por nombre con el historico. Nombres en el historico:', Object.keys(ultimoPorProducto), 'Nombres en el inventario:', productos.map(p => p.producto));
+      } else {
+        estado.textContent = 'Stock sincronizado con Google Sheets · ' + new Date().toLocaleTimeString('es-ES');
+        estado.style.color = '#1a5c2e';
+      }
     }
     return true;
   } catch (err) {
