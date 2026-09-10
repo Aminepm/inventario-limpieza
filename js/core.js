@@ -852,28 +852,38 @@ function initPedidos() {
     if (cantidad <= 0) { mostrarNotificacion("Indica una cantidad mayor que 0.", "error"); return; }
     if (!fecha) { mostrarNotificacion("Indica la fecha del pedido.", "error"); return; }
 
-    pedidos.push({
+    const stockAntes = Number(prod.stock) || 0;
+    const nuevoPedido = {
       id: "pe" + Date.now() + Math.floor(Math.random() * 1000),
       fecha,
       productoId: prod.id,
       producto: prod.producto || "Producto sin nombre",
       categoria: prod.categoria || "",
       cantidad,
-      precioUnitario: precio
-    });
+      precioUnitario: precio,
+      entradaReportada: false
+    };
+    pedidos.push(nuevoPedido);
 
-    prod.stock = (Number(prod.stock) || 0) + cantidad;
+    prod.stock = stockAntes + cantidad;
     const tr = inventoryBody.querySelector("tr[data-id=\"" + prod.id + "\"]");
     if (tr) {
       const stockInput = tr.querySelector("input[data-field=\"stock\"]");
       if (stockInput) stockInput.value = prod.stock;
     }
+    actualizarStockEnTablaReporte();
 
     guardarPedidos();
     document.getElementById("pedido-cantidad").value = "";
     document.getElementById("pedido-precio").value = "";
     renderPedidos();
     refrescarDashboard();
+    // No esperamos a que llegue el proximo reporte semanal de consumo: el
+    // pedido ya es una entrada real, asi que se envia a Sheets nada mas
+    // registrarlo. Si falla (sin conexion), queda pendiente y se recupera
+    // igualmente en el siguiente envio del reporte semanal (ver
+    // enviarReporteSemanal).
+    enviarEntradaPedidoASheets(nuevoPedido, prod, stockAntes);
   });
 }
 
@@ -1216,6 +1226,52 @@ function guardarReporteSemanalLocal(payload) {
   historico.push(payload);
   historico.sort((a, b) => (a.anio - b.anio) || (a.semana - b.semana));
   localStorage.setItem(REPORTES_SEMANALES_KEY, JSON.stringify(historico));
+}
+
+// Envia a Google Sheets, en el momento, la entrada de un pedido recien
+// registrado (en vez de esperar a que alguien rellene y envie el reporte
+// semanal de consumo, que puede tardar dias). Se manda como una fila mas
+// del historico: como no hay recuento fisico nuevo, stockFisico y
+// stockTeorico son iguales (la correccion que aplicaria sincronizarStockDesdeSheets
+// es 0), asi el pedido no se descuenta ni se suma dos veces.
+async function enviarEntradaPedidoASheets(pedido, prod, stockAntes) {
+  const hoy = new Date();
+  const anio = hoy.getFullYear();
+  const semana = numeroSemanaISO(hoy);
+  const payload = {
+    fecha: hoy.toISOString().split('T')[0],
+    anio,
+    semana,
+    reportes: [{
+      producto: prod.producto,
+      categoria: prod.categoria,
+      proveedor: '',
+      stockFisico: prod.stock,
+      stockTeorico: stockAntes,
+      entradasSemana: pedido.cantidad,
+      salidasSemana: 0,
+      observaciones: 'Pedido registrado'
+    }]
+  };
+
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (data.resultado === 'ok') {
+      pedido.entradaReportada = true;
+      const reporteKey = anio * 100 + semana;
+      if (reporteKey > (Number(prod.ultimoReporteSheetsAplicado) || 0)) {
+        prod.ultimoReporteSheetsAplicado = reporteKey;
+      }
+      guardarPedidos();
+      guardarProductos();
+    }
+  } catch (e) {
+    // Sin conexion: el pedido se queda marcado como pendiente
+    // (entradaReportada sigue en false) y se reportara igualmente la
+    // proxima vez que se envie el reporte semanal.
+    console.warn('[enviarEntradaPedidoASheets] No se pudo enviar la entrada a Sheets; se reportara en el proximo reporte semanal.', e);
+  }
 }
 
 async function enviarReporteSemanal() {
