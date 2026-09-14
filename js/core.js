@@ -1306,7 +1306,15 @@ async function enviarReporteSemanal() {
 
   const reportes = filas.map(f => {
     const antes = Number(f.prod.stock) || 0;
-    const despues = Math.max(0, antes - f.unidades);
+    // Si se ha contado y escrito lo que queda fisicamente ("existencias en
+    // stock"), ese es el numero real y es el que se aplica localmente (ver
+    // mas abajo, "f.quedan !== null"). Aqui se manda exactamente el mismo
+    // valor a Sheets: recalcularlo como antes-unidades en vez de usar
+    // f.quedan directamente podia dar un stockFisico distinto del que
+    // terminaba teniendo la app (p.ej. si el stock cambiaba entre escribir
+    // el recuento y pulsar "Enviar", por un pedido de por medio), y eso
+    // descuadraba la hoja frente a lo que mostraba la pagina.
+    const despues = f.quedan !== null ? f.quedan : Math.max(0, antes - f.unidades);
     return {
       producto: f.prod.producto,
       categoria: f.prod.categoria,
