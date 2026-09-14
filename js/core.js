@@ -1264,7 +1264,12 @@ async function enviarEntradaPedidoASheets(pedido, prod, stockAntes) {
     const res = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
     const data = await res.json();
     if (data.resultado === 'ok') {
-      pedido.entradaReportada = true;
+      // Se busca el pedido por id en el array ACTUAL de pedidos (en vez de
+      // mutar directamente la referencia capturada al empezar) porque, en
+      // el tiempo que ha tardado este envio, la sincronizacion en tiempo
+      // real con Firebase puede haber reemplazado ese array entero.
+      const actual = pedidos.find(pe => pe.id === pedido.id);
+      if (actual) actual.entradaReportada = true;
       guardarPedidos();
     }
   } catch (e) {
@@ -1352,8 +1357,13 @@ async function enviarReporteSemanal() {
       filas.forEach(f => {
         f.prod.stock = f.quedan !== null ? f.quedan : Math.max(0, (Number(f.prod.stock) || 0) - f.unidades);
         // Estos pedidos ya quedaron reflejados como entrada en este reporte:
-        // no deben volver a contarse en el siguiente envio.
-        f.pedidosPendientes.forEach(pe => { pe.entradaReportada = true; });
+        // no deben volver a contarse en el siguiente envio. Se marcan por id
+        // en el array actual de pedidos, por si la sincronizacion en tiempo
+        // real con Firebase lo reemplazo mientras se esperaba esta respuesta.
+        f.pedidosPendientes.forEach(pe => {
+          const actual = pedidos.find(p => p.id === pe.id);
+          if (actual) actual.entradaReportada = true;
+        });
         f.input.value = '0';
         f.input.dataset.aplicado = '0';
         if (f.existInput) f.existInput.value = '';
@@ -1426,6 +1436,16 @@ async function sincronizarStockDesdeSheets() {
       ultimoPorProducto[clave] = Number(r.stockFisico) || 0;
     });
 
+    // Nota: no se le suma nada por pedidos "todavia no confirmados en
+    // Sheets". Se probo esa idea y resulto ser el propio origen de
+    // descuadres: el marcador que dice si un pedido ya se confirmo puede
+    // quedarse atascado en falso por una carrera con la sincronizacion en
+    // tiempo real con Firebase, y entonces ese pedido se sumaba aqui para
+    // siempre, aunque su envio a Sheets SI hubiera funcionado. Es mas
+    // seguro confiar sin mas en el ultimo dato de Sheets: si algun pedido
+    // se registro justo antes de sincronizar y su envio a Sheets todavia no
+    // ha terminado, esta sincronizacion no lo vera -- pero se corrige solo
+    // en cuanto ese envio termine y se vuelva a sincronizar.
     let algunCambio = false;
     let algunProductoCoincidido = false;
     productos.forEach(prod => {
@@ -1433,15 +1453,7 @@ async function sincronizarStockDesdeSheets() {
       if (!(clave in ultimoPorProducto)) return;
       algunProductoCoincidido = true;
 
-      // Los pedidos que este mismo dispositivo registro pero que todavia no
-      // se han confirmado en Sheets (p.ej. por un fallo de conexion) no
-      // estan reflejados en esa ultima fila: se suman aparte para no
-      // perderlos mientras se reintenta el envio.
-      const pendientes = pedidos
-        .filter(pe => pe.productoId === prod.id && !pe.entradaReportada)
-        .reduce((s, pe) => s + (Number(pe.cantidad) || 0), 0);
-      const nuevoStock = ultimoPorProducto[clave] + pendientes;
-
+      const nuevoStock = ultimoPorProducto[clave];
       if (nuevoStock !== (Number(prod.stock) || 0)) {
         prod.stock = nuevoStock;
         algunCambio = true;
