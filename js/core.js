@@ -112,7 +112,12 @@ function normalizarPedidosNube(datos) {
     categoria: p.categoria || "",
     cantidad: Number(p.cantidad) || 0,
     precioUnitario: Number(p.precioUnitario) || 0,
-    entradaReportada: !!p.entradaReportada
+    // Un pedido sin este campo es de antes de que existiera el envio
+    // automatico a Sheets: ya estaba reflejado en el stock y en los reportes
+    // de esa epoca, asi que se trata como YA confirmado (no como pendiente).
+    // Solo se marca pendiente si se guardo explicitamente en false (p.ej.
+    // porque el envio inmediato fallo por falta de conexion).
+    entradaReportada: p.entradaReportada !== false
   }));
 }
 
@@ -248,7 +253,12 @@ function cargarPedidosGuardados() {
       categoria: p.categoria || "",
       cantidad: Number(p.cantidad) || 0,
       precioUnitario: Number(p.precioUnitario) || 0,
-      entradaReportada: !!p.entradaReportada
+      // Un pedido sin este campo es de antes de que existiera el envio
+      // automatico a Sheets: ya estaba reflejado en el stock y en los reportes
+      // de esa epoca, asi que se trata como YA confirmado (no como pendiente).
+      // Solo se marca pendiente si se guardo explicitamente en false (p.ej.
+      // porque el envio inmediato fallo por falta de conexion).
+      entradaReportada: p.entradaReportada !== false
     }));
   } catch (err) {
     console.error("No se pudieron cargar los pedidos guardados:", err);
