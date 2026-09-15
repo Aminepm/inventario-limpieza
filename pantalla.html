@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock · Vilamarina</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: #0b1220;
+    color: #e7edf5;
+    font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+    overflow: hidden;
+  }
+
+  /* ---- pantalla de acceso (solo la primera vez en este PC) ---- */
+  #loginKiosko {
+    position: fixed; inset: 0; z-index: 50;
+    background: #0b1220;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #loginKiosko .caja {
+    width: 360px; background: #131c2e; border: 1px solid #1f2b42;
+    border-radius: 16px; padding: 32px 30px;
+  }
+  #loginKiosko h1 { font-size: 20px; margin-bottom: 6px; }
+  #loginKiosko p.sub { font-size: 13px; color: #8a97ae; margin-bottom: 22px; }
+  #loginKiosko input {
+    width: 100%; padding: 11px 14px; margin-bottom: 12px;
+    border-radius: 8px; border: 1px solid #2a3752; background: #0e1526;
+    color: #e7edf5; font-size: 14px;
+  }
+  #loginKiosko button {
+    width: 100%; padding: 11px 14px; border: none; border-radius: 8px;
+    background: #12a190; color: #04231e; font-weight: 700; font-size: 14px;
+    cursor: pointer; margin-top: 6px;
+  }
+  #loginKiosko .err { color: #ff8080; font-size: 13px; margin-top: 12px; min-height: 16px; }
+
+  /* ---- pantalla principal ---- */
+  #app { display: none; flex-direction: column; height: 100vh; }
+  #app.visible { display: flex; }
+
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 30px 56px 18px 56px; flex: none;
+  }
+  .header .saludo h1 { font-size: 32px; font-weight: 700; }
+  .header .saludo .sub { font-size: 15px; color: #8a97ae; margin-top: 4px; }
+  .header .clock { text-align: right; }
+  .header .clock .time { font-size: 46px; font-weight: 700; line-height: 1; letter-spacing: 1px; }
+  .header .clock .date { font-size: 15px; color: #8a97ae; margin-top: 6px; text-transform: capitalize; }
+
+  .grid {
+    flex: 1; min-height: 0; overflow: hidden;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-auto-rows: 1fr;
+    gap: 18px;
+    padding: 6px 56px;
+    align-content: start;
+  }
+  .card {
+    background: #131c2e; border: 1px solid #1f2b42; border-radius: 16px;
+    padding: 20px 24px; display: flex; flex-direction: column; position: relative; overflow: hidden;
+  }
+  .card.crit { box-shadow: inset 0 0 0 2px rgba(255,93,93,.45); }
+  .card .cat { font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; color: #8a97ae; margin-bottom: 6px; }
+  .card .nombre { font-size: 21px; font-weight: 700; margin-bottom: auto; line-height: 1.2; }
+  .card .stock-row { display: flex; align-items: baseline; gap: 8px; margin-top: 14px; margin-bottom: 12px; }
+  .card .stock-num { font-size: 42px; font-weight: 800; line-height: 1; }
+  .card .stock-unid { font-size: 14px; color: #8a97ae; }
+  .card .barra-bg { height: 8px; border-radius: 6px; overflow: hidden; margin-bottom: 12px; background: #1f2b42; flex: none; }
+  .card .barra-fill { height: 100%; border-radius: 6px; }
+  .card .estado { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; padding: 5px 12px; border-radius: 999px; width: fit-content; }
+  .card .estado .puntito { width: 8px; height: 8px; border-radius: 50%; }
+
+  .ok .stock-num, .ok .barra-fill { color: #33d17a; } .ok .barra-fill { background:#33d17a; } .ok .estado { background:rgba(51,209,122,.15); color:#33d17a; } .ok .estado .puntito { background:#33d17a; }
+  .bajo .stock-num { color:#ffb648; } .bajo .barra-fill { background:#ffb648; } .bajo .estado { background:rgba(255,182,72,.15); color:#ffb648; } .bajo .estado .puntito { background:#ffb648; }
+  .crit .stock-num { color:#ff5d5d; } .crit .barra-fill { background:#ff5d5d; } .crit .estado { background:rgba(255,93,93,.15); color:#ff5d5d; } .crit .estado .puntito { background:#ff5d5d; }
+
+  .footer {
+    flex: none; display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 56px 22px 56px; font-size: 13px; color: #8a97ae;
+    border-top: 1px solid #1f2b42;
+  }
+  .footer .sync { display: flex; align-items: center; gap: 10px; }
+  .footer .led { width: 9px; height: 9px; border-radius: 50%; background: #2ecc71; box-shadow: 0 0 8px #2ecc71; }
+  .footer .led.off { background: #ff5d5d; box-shadow: 0 0 8px #ff5d5d; }
+
+  .vacio { margin: auto; text-align: center; color: #8a97ae; font-size: 16px; }
+</style>
+</head>
+<body>
+
+<div id="loginKiosko">
+  <div class="caja">
+    <h1>Acceso pantalla de stock</h1>
+    <p class="sub">Solo hace falta iniciar sesión una vez en este ordenador.</p>
+    <input type="email" id="kioskoEmail" placeholder="Correo" autocomplete="username">
+    <input type="password" id="kioskoPass" placeholder="Contraseña" autocomplete="current-password">
+    <button id="kioskoBtn">Entrar</button>
+    <div class="err" id="kioskoErr"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="header">
+    <div class="saludo">
+      <h1 id="saludoTexto">Hola</h1>
+      <div class="sub">Stock de material de limpieza · Centre Comercial Vilamarina</div>
+    </div>
+    <div class="clock">
+      <div class="time" id="relojHora">--:--</div>
+      <div class="date" id="relojFecha">-</div>
+    </div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="footer">
+    <div class="sync"><span class="led" id="syncLed"></span><span id="syncTexto">Conectando…</span></div>
+    <div>Se actualiza sola</div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script>
+  // Cambia aqui el nombre si algun dia esta pantalla pasa a otra persona.
+  const NOMBRE_ENCARGADO = "José";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAHmXLAc_3tjapG4E2F4CVwEnVKE8YEYXQ",
+    authDomain: "control-inventario-2a868.firebaseapp.com",
+    projectId: "control-inventario-2a868",
+    storageBucket: "control-inventario-2a868.firebasestorage.app",
+    messagingSenderId: "313505935802",
+    appId: "1:313505935802:web:babcbdd45c2d03853d2d83"
+  };
+  firebase.initializeApp(firebaseConfig);
+  // Persistencia LOCAL: una vez iniciada sesion en este PC, se queda
+  // conectada aunque se reinicie el navegador o se vaya la luz -- por eso
+  // el login solo hace falta la primera vez que se monta la pantalla.
+  firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+  const db = firebase.firestore();
+  const cloudDocRef = db.collection("inventario").doc("main");
+
+  // ── Login (solo se ve la primera vez, mientras no haya sesion guardada) ──
+  const loginKiosko = document.getElementById("loginKiosko");
+  const appEl = document.getElementById("app");
+  const kioskoBtn = document.getElementById("kioskoBtn");
+  const kioskoErr = document.getElementById("kioskoErr");
+
+  function intentarLogin() {
+    const email = document.getElementById("kioskoEmail").value.trim();
+    const pass = document.getElementById("kioskoPass").value;
+    if (!email || !pass) { kioskoErr.textContent = "Indica correo y contraseña."; return; }
+    kioskoErr.textContent = "";
+    kioskoBtn.disabled = true;
+    kioskoBtn.textContent = "Entrando…";
+    firebase.auth().signInWithEmailAndPassword(email, pass)
+      .catch(err => {
+        kioskoErr.textContent = "No se pudo entrar: revisa el correo y la contraseña.";
+        kioskoBtn.disabled = false;
+        kioskoBtn.textContent = "Entrar";
+      });
+  }
+  kioskoBtn.addEventListener("click", intentarLogin);
+  document.getElementById("kioskoPass").addEventListener("keydown", e => { if (e.key === "Enter") intentarLogin(); });
+
+  firebase.auth().onAuthStateChanged(user => {
+    if (user) {
+      loginKiosko.style.display = "none";
+      appEl.classList.add("visible");
+      conectarStock();
+    } else {
+      loginKiosko.style.display = "flex";
+      appEl.classList.remove("visible");
+    }
+  });
+
+  // ── Reloj y saludo, en vivo ──────────────────────────────────────────────
+  function actualizarReloj() {
+    const ahora = new Date();
+    document.getElementById("relojHora").textContent =
+      ahora.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+    document.getElementById("relojFecha").textContent =
+      ahora.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+
+    const h = ahora.getHours();
+    const franja = h < 12 ? "Buenos días" : h < 20 ? "Buenas tardes" : "Buenas noches";
+    document.getElementById("saludoTexto").textContent = franja + ", " + NOMBRE_ENCARGADO;
+  }
+  actualizarReloj();
+  setInterval(actualizarReloj, 15000);
+
+  // ── Clasificacion de stock: misma logica que el resto de la app ─────────
+  function estadoStock(stock, minimo, consumo) {
+    const cobertura = consumo > 0 ? stock / consumo : 0;
+    if (stock <= minimo) return { texto: "Reponer ya", cls: "crit", barra: 25 };
+    if (cobertura < 1.5) return { texto: "Stock bajo", cls: "bajo", barra: 60 };
+    return { texto: "Stock correcto", cls: "ok", barra: 100 };
+  }
+
+  function escaparHTML(v) {
+    return String(v == null ? "" : v)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  function formatNumber(value) {
+    return new Intl.NumberFormat("es-ES", { maximumFractionDigits: 0 }).format(value || 0);
+  }
+
+  // Pinta la rejilla de productos. Separada del listener de Firestore para
+  // poder probarla sola (le basta con un array de productos).
+  function renderPantalla(productos) {
+    const grid = document.getElementById("grid");
+    grid.innerHTML = "";
+    if (!Array.isArray(productos) || productos.length === 0) {
+      grid.innerHTML = '<div class="vacio">Todavía no hay productos en el inventario.</div>';
+      return;
+    }
+    // Los que necesitan reponerse ya van primero, para que salten a la vista.
+    const orden = { crit: 0, bajo: 1, ok: 2 };
+    const ordenados = productos.slice().sort((a, b) => {
+      const ea = estadoStock(Number(a.stock) || 0, Number(a.minimo) || 0, Number(a.consumo) || 0);
+      const eb = estadoStock(Number(b.stock) || 0, Number(b.minimo) || 0, Number(b.consumo) || 0);
+      return orden[ea.cls] - orden[eb.cls];
+    });
+
+    ordenados.forEach(prod => {
+      const stock = Number(prod.stock) || 0;
+      const minimo = Number(prod.minimo) || 0;
+      const consumo = Number(prod.consumo) || 0;
+      const estado = estadoStock(stock, minimo, consumo);
+      const card = document.createElement("div");
+      card.className = "card " + estado.cls + (estado.cls === "crit" ? " crit" : "");
+      card.innerHTML = `
+        <div class="cat">${escaparHTML(prod.categoria || "")}</div>
+        <div class="nombre">${escaparHTML(prod.producto || "Producto sin nombre")}</div>
+        <div class="stock-row"><span class="stock-num">${formatNumber(stock)}</span><span class="stock-unid">unidades</span></div>
+        <div class="barra-bg"><div class="barra-fill" style="width:${estado.barra}%"></div></div>
+        <div class="estado"><span class="puntito"></span>${estado.texto}</div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  // ── Conexion en vivo a los mismos datos que usa el resto de la app ──────
+  function conectarStock() {
+    const syncLed = document.getElementById("syncLed");
+    const syncTexto = document.getElementById("syncTexto");
+    cloudDocRef.onSnapshot(snap => {
+      syncLed.classList.remove("off");
+      syncTexto.textContent = "Conectado en tiempo real · actualizado " +
+        new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+      if (!snap.exists) { renderPantalla([]); return; }
+      const datos = snap.data();
+      renderPantalla(Array.isArray(datos.productos) ? datos.productos : []);
+    }, err => {
+      console.error("Error al leer el stock:", err);
+      syncLed.classList.add("off");
+      syncTexto.textContent = "Sin conexión — mostrando el último dato conocido";
+    });
+  }
+</script>
+</body>
+</html>
