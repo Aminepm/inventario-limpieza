@@ -71,6 +71,7 @@
   .card .stock-row { display: flex; align-items: baseline; gap: 8px; margin-top: 14px; margin-bottom: 12px; }
   .card .stock-num { font-size: 42px; font-weight: 800; line-height: 1; }
   .card .stock-unid { font-size: 14px; color: #8a97ae; }
+  .card .prevision { font-size: 13px; color: #8a97ae; margin-bottom: 14px; }
   .card .barra-bg { height: 8px; border-radius: 6px; overflow: hidden; margin-bottom: 12px; background: #1f2b42; flex: none; }
   .card .barra-fill { height: 100%; border-radius: 6px; }
   .card .estado { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; padding: 5px 12px; border-radius: 999px; width: fit-content; }
@@ -130,7 +131,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script>
   // Cambia aqui el nombre si algun dia esta pantalla pasa a otra persona.
-  const NOMBRE_ENCARGADO = "José";
+  const NOMBRE_ENCARGADO = "Jose";
 
   const firebaseConfig = {
     apiKey: "AIzaSyAHmXLAc_3tjapG4E2F4CVwEnVKE8YEYXQ",
@@ -215,6 +216,19 @@
     return new Intl.NumberFormat("es-ES", { maximumFractionDigits: 0 }).format(value || 0);
   }
 
+  // "consumo" es el consumo medio MENSUAL del producto (el mismo dato que
+  // usa el resto de la app para calcular gasto anual), asi que a partir de
+  // el podemos estimar hasta que fecha llega el stock actual.
+  function previsionTexto(stock, consumo) {
+    if (stock <= 0) return "Sin stock";
+    if (consumo <= 0) return "Sin datos de consumo";
+    const dias = Math.round((stock / consumo) * 30.44);
+    if (dias < 1) return "Se agota hoy";
+    const fecha = new Date();
+    fecha.setDate(fecha.getDate() + dias);
+    return "Suficiente hasta el " + fecha.toLocaleDateString("es-ES", { day: "numeric", month: "long" });
+  }
+
   // Pinta la rejilla de productos. Separada del listener de Firestore para
   // poder probarla sola (le basta con un array de productos).
   function renderPantalla(productos) {
@@ -243,6 +257,7 @@
         <div class="cat">${escaparHTML(prod.categoria || "")}</div>
         <div class="nombre">${escaparHTML(prod.producto || "Producto sin nombre")}</div>
         <div class="stock-row"><span class="stock-num">${formatNumber(stock)}</span><span class="stock-unid">unidades</span></div>
+        <div class="prevision">${escaparHTML(previsionTexto(stock, consumo))}</div>
         <div class="barra-bg"><div class="barra-fill" style="width:${estado.barra}%"></div></div>
         <div class="estado"><span class="puntito"></span>${estado.texto}</div>
       `;
